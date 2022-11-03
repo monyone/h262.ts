@@ -1,4 +1,4 @@
-import Decoder from '@monyone/h262';
+import Decoder from '@monyone/h262.ts';
 import fs from 'fs';
 
 const decoder = new Decoder();

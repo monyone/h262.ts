@@ -2,7 +2,7 @@
 # yarn lockfile v1
 
 
-"@monyone/h262@file:../core":
+"@monyone/h262.ts@file:../core":
   version "0.0.1"
 
 "@types/node@16.11.7":

@@ -11,7 +11,7 @@
     "typescript": "^4.6.2"
   },
   "dependencies": {
-    "@monyone/h262": "file:../core",
+    "@monyone/h262.ts": "file:../core",
     "commander": "^9.2.0"
   }
 }
