@@ -109,9 +109,10 @@ const default_intra_quantiser_matrix = [
   22, 26, 27, 29, 32, 35, 40, 48,
   26, 27, 29, 32, 35, 40, 48, 58,
   26, 27, 29, 34, 38, 46, 56, 69,
-  27, 29, 35, 38, 46, 56 ,69, 83,
+  27, 29, 35, 38, 46, 56, 69, 83,
 ];
-const default_non_intra_quantiser_matrix = [  // from sequence header
+
+const default_non_intra_quantiser_matrix = [
   16, 16, 16, 16, 16, 16, 16, 16,
   16, 16, 16, 16, 16, 16, 16, 16,
   16, 16, 16, 16, 16, 16, 16, 16,
@@ -122,10 +123,22 @@ const default_non_intra_quantiser_matrix = [  // from sequence header
   16, 16, 16, 16, 16, 16, 16, 16,
 ];
 
+//*
+const q_scale = [
+  0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62
+];
+//*/
+/*
+const q_scale = [
+  0,1,2,3,4,5,6,7,8,10,12,14,16,18,20,22,24,28,32,36,40,44,48,52,56,64,72,80,88,96,104,112
+];
+//*/
+
 export default class H262Decoder {
-  // Decode Needed Gata
+  // Decode Needed Data
   #picture_coding_type: number | null = null; // from picture header
   #chroma_format: number | null = null; // from sequence extension
+  #intra_dc_precision: number | null = null; // from picture coding extension
   #picture_structure: number | null = null; // from picture coding extension
   #frame_pred_frame_dct: boolean | null = null; // from picture coding extension
   #concealment_motion_vectors: boolean | null = null; // from picture coding extension
@@ -133,6 +146,7 @@ export default class H262Decoder {
   #intra_quantiser_matrix: number[] =  default_intra_quantiser_matrix;
   #non_intra_quantiser_matrix: number[] = default_non_intra_quantiser_matrix;
   #quantizer_scale: number | null = null; // from slice
+  #dct_dc_pred: [number, number, number] = [128, 128, 128];
   // Getter
   get #block_count() {
     if (this.#chroma_format == null) { return null; }
@@ -145,24 +159,25 @@ export default class H262Decoder {
     }
   }
 
+  //
+  #width = 0;
+  #height = 0;
+  #macroblock_address = 0;
+  #y: Uint8ClampedArray[] = [];
+  #u: Uint8ClampedArray[] = [];
+  #v: Uint8ClampedArray[] = [];
+
   // Parser
   #next_start_code(stream: BitStream): boolean {
     try {
       stream.skipUntilAligned();
-
-      let fst = stream.readUint8();
-      let snd = stream.readUint8();
-      let thd = stream.readUint8();
-   
       while (true) {
-        if (fst === 0 && snd === 0 && thd === 1) {
-          stream.retainUint24(1);
+        const start_code = stream.peekUint24();
+        if (start_code === 0x000001) {
           return true;
         }
 
-        fst = snd;
-        snd = thd;
-        thd = stream.readUint8();
+        stream.skipUint8();
       }
     } catch (e: unknown) {
       return false;
@@ -276,7 +291,7 @@ export default class H262Decoder {
       horizontal_subsampling_factor_n = stream.readBits(5);
       vertical_subsampling_factor_m = stream.readBits(5);
       vertical_subsampling_factor_n = stream.readBits(5);
-    } 
+    }
     let picture_mux_enable: boolean | null = null;
     let mux_to_progressive_sequence: boolean | null = null;
     let picture_mux_order: number | null = null;
@@ -428,6 +443,11 @@ export default class H262Decoder {
     if (this.#picture_coding_type == null || this.#picture_coding_type !== PictureCodingType.I) {
       return;
     }
+    this.#dct_dc_pred = [
+      1 << (this.#intra_dc_precision! + 7),
+      1 << (this.#intra_dc_precision! + 7),
+      1 << (this.#intra_dc_precision! + 7)
+    ];
 
     let slice_vertical_position = (slice_start_code & 0x000000FF) - 1;
     if (slice_vertical_position >= (2800 - 1)) {
@@ -517,12 +537,31 @@ export default class H262Decoder {
 
     if (this.#block_count == null) { return null; }
     for (let i = 0; i < this.#block_count; i++) {
-      const decoded = this.#block(i < 4, macroblock_params[this.#picture_coding_type][macroblock_type], stream);
+      const decoded = this.#block(i < 4, Math.max(0, i - 3), macroblock_params[this.#picture_coding_type][macroblock_type], stream);
       if (decoded == null) { return null; }
+
+      const rows = Math.floor(this.#width / 16);
+      const sx = Math.floor(this.#macroblock_address % rows);
+      const sy = Math.floor(this.#macroblock_address / rows);
+
+      for (let r = 0; r < BLOCK_ROW; r++) {
+        for (let c = 0; c < BLOCK_COL; c++) {
+          switch(i) {
+            case 0: this.#y[sy * 16 + r + 0][sx * 16 + c + 0] = decoded[r][c]; break;
+            case 1: this.#y[sy * 16 + r + 0][sx * 16 + c + 8] = decoded[r][c]; break;
+            case 2: this.#y[sy * 16 + r + 8][sx * 16 + c + 0] = decoded[r][c]; break;
+            case 3: this.#y[sy * 16 + r + 8][sx * 16 + c + 8] = decoded[r][c]; break;
+            case 4: this.#u[sy *  8 + r + 0][sx *  8 + c + 0] = decoded[r][c]; break;
+            case 5: this.#v[sy *  8 + r + 0][sx *  8 + c + 0] = decoded[r][c]; break;
+          }
+        }
+      }
     }
+
+    this.#macroblock_address += macroblock_address_increment;
   }
 
-  #block(is_luminance: boolean, params: MacroBlockParametersFlags, stream: BitStream) {
+  #block(is_luminance: boolean, yuv: number, params: MacroBlockParametersFlags, stream: BitStream) {
     const { macroblock_intra } = params;
     let index = 0;
     const coeffs = [];
@@ -535,14 +574,15 @@ export default class H262Decoder {
 
       if (dct_dc_size !== 0) {
         let dct_dc_differential = stream.readBits(dct_dc_size);
-        dct_dc_differential = (dct_dc_differential << (32 - dct_dc_size)) >> (32 - dct_dc_size)
         if ((dct_dc_differential & (1 << (dct_dc_size - 1))) === 0) {
           dct_dc_differential -= (1 << dct_dc_size) - 1;
         }
+        this.#dct_dc_pred[yuv] = this.#dct_dc_pred[yuv] + dct_dc_differential;
+        coeffs[0] = this.#dct_dc_pred[yuv];
       } else {
-        coeffs[0] = 0;
+        coeffs[0] = this.#dct_dc_pred[yuv];
       }
-      index++;
+      index += 1;
     } else {
       const result = DCT_COEFFICIENTS_ZERO_DC_VLC.get(stream);
       if (result == null) { return null; }
@@ -553,7 +593,7 @@ export default class H262Decoder {
       }
 
       index += run;
-      coeffs[index] = level;
+      coeffs[index++] = level;
     }
     while (true) {
       const result = DCT_COEFFICIENTS_ZERO_OTHER_VLC.get(stream);
@@ -567,11 +607,11 @@ export default class H262Decoder {
         run = stream.readBits(6)
         level = (stream.readBits(12) << 20) >> 20;
       } else if (stream.readBool()) {
-        level = -level;          
+        level = -level;
       }
 
-      index += run;
-      coeffs[index] = level;
+      index += run
+      coeffs[index++] = level;
     }
 
     // dequantize
@@ -587,17 +627,20 @@ export default class H262Decoder {
         if (matrix == null) { continue; }
 
         if (macroblock_intra) {
-          dequant[i][j] = (2 * coeffs[order]) * this.#quantizer_scale! * matrix[i * 8 + j] / 16;
+          if (i === 0 && j === 0) {
+            dequant[i][j] = (coeffs[order]) * (1 << (3 - this.#intra_dc_precision!));
+          } else {
+            dequant[i][j] = (2 * coeffs[order]) * q_scale[this.#quantizer_scale!] * matrix[i * 8 + j] / 32;
+          }
         } else {
           dequant[i][j] = (2 * coeffs[order] + Math.sign(coeffs[order])) * this.#quantizer_scale! * matrix[i * 8 + j] / 16;
         }
         if (dequant[i][j] % 2 === 0) {
-          dequant[i][j] -= Math.sign(dequant[i][j]);
+          dequant[i][j] += Math.sign(dequant[i][j]);
         }
         dequant[i][j] = Math.max(-2048, Math.min(2047, dequant[i][j]));
       }
     }
-
     // fast idct
     const image = idct(dequant);
     return image;
@@ -605,6 +648,8 @@ export default class H262Decoder {
 
   public decode(payload: ArrayBuffer) {
     const stream = new BitStream(payload);
+
+    let firstIFrameArrived = false;
 
     while (this.#next_start_code(stream)) {
       switch(stream.peekUint32()) {
@@ -617,7 +662,20 @@ export default class H262Decoder {
             this.#intra_quantiser_matrix = sequence.intra_quantiser_matrix;
             this.#non_intra_quantiser_matrix = sequence.non_intra_quantiser_matrix;
           }
-          break; 
+          this.#width = sequence?.horizontal_size_value ?? 0;
+          this.#height = sequence?.vertical_size_value ?? 0;
+          if (firstIFrameArrived) { return { y: this.#y, u: this.#u, v: this.#v }; }
+          this.#y = [];
+          for (let i = 0; i < this.#height; i++) {
+            this.#y.push(new Uint8ClampedArray(Math.floor(this.#width)));
+          }
+          this.#u = [];
+          this.#v = [];
+          for (let i = 0; i < Math.floor(this.#height / 2); i++) {
+            this.#u.push(new Uint8ClampedArray(Math.floor(this.#width / 2)));
+            this.#v.push(new Uint8ClampedArray(Math.floor(this.#width / 2)));
+          }
+          break;
         }
         case StartCode.UserDataStartCode:
           this.#user_data(stream);
@@ -637,6 +695,7 @@ export default class H262Decoder {
             }
             case ExtentionIdentifier.PictureCodingExtensionID: {
               const extension = this.#picture_coding_extension(stream);
+              this.#intra_dc_precision = extension?.intra_dc_precision ?? null;
               this.#picture_structure = extension?.picture_structure ?? null;
               this.#frame_pred_frame_dct = extension?.frame_pred_frame_dct ?? null;
               this.#concealment_motion_vectors = extension?.concealment_motion_vectors ?? null;
@@ -656,6 +715,9 @@ export default class H262Decoder {
         case StartCode.PictureStartCode: {
           const header = this.#picture_header(stream);
           this.#picture_coding_type = header?.picture_coding_type ?? null
+          if (this.#picture_coding_type === PictureCodingType.I) {
+            firstIFrameArrived = true;
+          }
           break;
         }
         default: {

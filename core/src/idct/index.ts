@@ -1,28 +1,28 @@
 import { BLOCK_COL, BLOCK_ROW } from "../constant";
 
-const fast_idct = (array: number[]): number[] => {
-  if (array.length === 1) { return array; }
-  const s_front = array.filter((_, index) => index < array.length / 2);
-  const s_tail = array.filter((_, index) => index >= array.length / 2);
-  for (let i = 1; i < s_tail.length; i++) { s_tail[i] += s_tail[i - 1]; }
+const slow = (x: number, y: number, dequent: number[][]) => {
+  let result = 0;
+  for (let v = 0; v < BLOCK_ROW; v++) {
+    for (let u = 0; u < BLOCK_COL; u++) {
+      const cu = u === 0 ? (1 / Math.sqrt(BLOCK_ROW)) : Math.sqrt(2 / BLOCK_ROW);
+      const cv = v === 0 ? (1 / Math.sqrt(BLOCK_COL)) : Math.sqrt(2 / BLOCK_COL);
+      const cosu = Math.cos(2 * Math.PI * u * (2 * x + 1) / (4 * BLOCK_ROW));
+      const cosv = Math.cos(2 * Math.PI * v * (2 * y + 1) / (4 * BLOCK_COL));
+      result += cu * cv * cosu * cosv * dequent[v][u];
+    }
+  }
 
-  const k_front = fast_idct(s_front);
-  const k_tail = fast_idct(s_tail).map((x, index) => x / (2 * Math.cos(Math.PI / ((2 * array.length)) * (2 * index + 1))));
-
-  const t_front = k_front.map((value, index) => value - k_tail[index]);
-  const t_tail = k_tail.map((value, index) => value + k_front[index]);
-
-  return [... t_front, ... t_tail];
+  return result;
 }
 
 export default (dequant: number[][]) => {
-  const col_idct: number[][] = dequant.map(array => fast_idct(array));
-  const rows: number[][] = [];
-  for (let i = 0; i < BLOCK_COL; i++) {
-    rows.push([]);
-    for (let j = 0; j < BLOCK_ROW; j++) {
-      rows[i].push(col_idct[j][i]);
+  const idct: number[][] = [];
+  for (let i = 0; i < BLOCK_ROW; i++) {
+    idct.push([]);
+    for (let j = 0; j < BLOCK_COL; j++) {
+      idct[i].push(slow(j, i, dequant));
     }
   }
-  return rows.map(array => fast_idct(array));
+
+  return idct;
 }

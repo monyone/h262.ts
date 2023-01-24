@@ -43,6 +43,22 @@ export default class BitStream {
     }
   }
 
+  public skipUint8(): void {
+    return this.skipBits(8);
+  }
+
+  public skipUint16(): void {
+    return this.skipBits(16);
+  }
+
+  public skipUint24(): void {
+    return this.skipBits(24);
+  }
+
+  public skipUint32(): void {
+    return this.skipBits(32);
+  }
+
   public readBits(length: number): number {
     let bits = 0;
     while (length > 0) {

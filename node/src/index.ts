@@ -4,11 +4,8 @@ import fs from 'fs';
 const decoder = new Decoder();
 
 const buffer = fs.readFileSync(process.argv[2]);
-console.log(process.argv[2])
-decoder.decode(buffer)!;
+const { y, u, v } = decoder.decode(buffer)!;
 
-/*
-process.stdout.write(Buffer.from(y));
-process.stdout.write(Buffer.from(u));
-process.stdout.write(Buffer.from(v));
-*/
+y.forEach((_) => { process.stdout.write(new Uint8Array(_)); })
+u.forEach((_) => { process.stdout.write(new Uint8Array(_)); })
+v.forEach((_) => { process.stdout.write(new Uint8Array(_)); })
