@@ -1,4 +1,4 @@
-import BitStream from "../bitstream";
+import BitStream from "../util/bitstream";
 
 export default class BinaryTrie<T> {
   #value: T | null = null;

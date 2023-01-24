@@ -1,4 +1,4 @@
-import BitStream from "./bitstream";
+import BitStream from "./util/bitstream";
 
 enum StartCode {
   PictureStartCode = 0x100,
