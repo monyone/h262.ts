@@ -89,7 +89,7 @@ export const zigzagOrder = [
   [ 21, 34, 37, 47, 50, 56, 59, 61],
   [ 35, 36, 48, 49, 57, 58, 62, 63],
 ];
-const alternateOrder = [
+export const alternateOrder = [
   [  0,  4,  6, 20, 22, 36, 38, 52],
   [  1,  5,  7, 21, 23, 37, 39, 53],
   [  2,  8, 19, 24, 34, 40, 50, 54],
@@ -123,15 +123,10 @@ const default_non_intra_quantiser_matrix = [
 ];
 
 //*
-export const quantizerScale = [
-  0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62
+export const q_scale = [
+  [0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62],
+  [0,1,2,3,4,5,6,7,8,10,12,14,16,18,20,22,24,28,32,36,40,44,48,52,56,64,72,80,88,96,104,112],
 ];
-//*/
-/*
-const q_scale = [
-  0,1,2,3,4,5,6,7,8,10,12,14,16,18,20,22,24,28,32,36,40,44,48,52,56,64,72,80,88,96,104,112
-];
-//*/
 
 export const findNextStartCode = (stream: BitStream): boolean => {
   try {
@@ -344,7 +339,7 @@ export type PictureCodingExtension = {
   top_field_first: boolean,
   frame_pred_frame_dct: boolean,
   concealment_motion_vectors: boolean,
-  q_scale_type: boolean,
+  q_scale_type: number,
   intra_vlc_format: boolean,
   alternate_scan: boolean,
   repeat_first_field: boolean,
@@ -369,7 +364,7 @@ export const parsePictureCodingExtension = (stream: BitStream): PictureCodingExt
   const top_field_first = stream.readBool();
   const frame_pred_frame_dct = stream.readBool();
   const concealment_motion_vectors = stream.readBool();
-  const q_scale_type = stream.readBool();
+  const q_scale_type = stream.readBits(1);
   const intra_vlc_format = stream.readBool();
   const alternate_scan = stream.readBool();
   const repeat_first_field = stream.readBool();

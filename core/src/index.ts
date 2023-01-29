@@ -2,7 +2,7 @@ import BitStream from "./util/bitstream";
 import { BLOCK_COL, BLOCK_DCT_COEFFS, BLOCK_ROW } from "./constant";
 import idct from "./idct";
 import { CODED_BLOCK_PATTERN_VLC, DCT_COEFFICIENTS_ZERO_DC_VLC, DCT_COEFFICIENTS_ZERO_OTHER_VLC, DCT_DC_SIZE_CHROMINANCE_VLC, DCT_DC_SIZE_LUMINANCE_VLC, MACROBLOCK_ADDRESS_INCREMENT_VLC, MACROBLOCK_TYPE_VLC } from "./vlc";
-import { ExtentionIdentifier, findNextStartCode, MacroBlockParametersFlags, macroblockParams, parseGroupOfPicturesHeader, parsePictureCodingExtension, parsePictureHeader, parseScalableExtension, parseSeqenceHeader, parseSequenceExtension, parseUserData, PictureCodingExtension, PictureCodingType, PictureHeader, quantizerScale, ScalableExtension, SequenceExtension, SequenceHeader, StartCode, zigzagOrder } from "./structure";
+import { alternateOrder, ExtentionIdentifier, findNextStartCode, MacroBlockParametersFlags, macroblockParams, parseGroupOfPicturesHeader, parsePictureCodingExtension, parsePictureHeader, parseScalableExtension, parseSeqenceHeader, parseSequenceExtension, parseUserData, PictureCodingExtension, PictureCodingType, PictureHeader, q_scale, ScalableExtension, SequenceExtension, SequenceHeader, StartCode, zigzagOrder } from "./structure";
 
 export default class H262Decoder {
   #sequence_header: SequenceHeader | null = null;
@@ -216,7 +216,7 @@ export default class H262Decoder {
     }
     for (let i = 0; i < 8; i++) {
       for (let j = 0; j < 8; j++) {
-        const order = zigzagOrder[i][j];
+        const order = (this.#picture_coding_extension.alternate_scan ? alternateOrder : zigzagOrder)[i][j];
         const matrix = macroblock_intra ? this.#sequence_header.intra_quantiser_matrix : this.#sequence_header.non_intra_quantiser_matrix
         if (matrix == null) { continue; }
 
@@ -224,7 +224,7 @@ export default class H262Decoder {
           if (i === 0 && j === 0) {
             dequant[i][j] = (coeffs[order]) * (1 << (3 - this.#picture_coding_extension.intra_dc_precision));
           } else {
-            dequant[i][j] = (2 * coeffs[order]) * quantizerScale[this.#quantizer_scale!] * matrix[i * 8 + j] / 32;
+            dequant[i][j] = (2 * coeffs[order]) * q_scale[this.#picture_coding_extension.q_scale_type][this.#quantizer_scale!] * matrix[i * 8 + j] / 32;
           }
         } else {
           dequant[i][j] = (2 * coeffs[order] + Math.sign(coeffs[order])) * this.#quantizer_scale! * matrix[i * 8 + j] / 16;
