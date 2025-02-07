@@ -3,29 +3,29 @@ import { BLOCK_COL, BLOCK_DCT_COEFFS, BLOCK_ROW } from "./constant";
 import idct from "./idct";
 import { CODED_BLOCK_PATTERN_VLC, DCT_COEFFICIENTS_ZERO_DC_VLC, DCT_COEFFICIENTS_ZERO_OTHER_VLC, DCT_DC_SIZE_CHROMINANCE_VLC, DCT_DC_SIZE_LUMINANCE_VLC, MACROBLOCK_ADDRESS_INCREMENT_VLC, MACROBLOCK_TYPE_VLC } from "./vlc";
 
-export enum StartCode {
-  PictureStartCode = 0x100,
-  MinSliceStartCode = 0x101,
-  MaxSliceStartCode = 0x1AF,
-  UserDataStartCode = 0x1B2,
-  SequenceHeaderCode = 0x1B3,
-  SequenceErrorCode = 0x1B4,
-  ExtensionStartCode = 0x1B5,
-  SequenceEndCode = 0x1B7,
-  GroupStartCode = 0x1B8
-};
+export const StartCode = {
+  PictureStartCode: 0x100,
+  MinSliceStartCode: 0x101,
+  MaxSliceStartCode: 0x1AF,
+  UserDataStartCode: 0x1B2,
+  SequenceHeaderCode: 0x1B3,
+  SequenceErrorCode: 0x1B4,
+  ExtensionStartCode: 0x1B5,
+  SequenceEndCode: 0x1B7,
+  GroupStartCode: 0x1B8
+} as const;
 
-export enum ExtentionIdentifier {
-  SequenceExtensionID = 0b0001,
-  SequenceDisplayExtensionID = 0b0010,
-  QuantMatrixExtensionID = 0b0011,
-  CopyrightExtensionID = 0b0100,
-  SequenceScalableExtensionID = 0b0101,
-  PictureDisplayExtensionID = 0b0111,
-  PictureCodingExtensionID = 0b1000,
-  PictureSpatialScalableExtensionID = 0b1001,
-  PictureTemporalScalableExtensionID = 0b1010
-};
+export const ExtentionIdentifier = {
+  SequenceExtensionID: 0b0001,
+  SequenceDisplayExtensionID: 0b0010,
+  QuantMatrixExtensionID: 0b0011,
+  CopyrightExtensionID: 0b0100,
+  SequenceScalableExtensionID: 0b0101,
+  PictureDisplayExtensionID: 0b0111,
+  PictureCodingExtensionID: 0b1000,
+  PictureSpatialScalableExtensionID: 0b1001,
+  PictureTemporalScalableExtensionID: 0b1010
+} as const;
 
 export enum PictureCodingType {
   // 0b000 = PictureCodingType
@@ -143,7 +143,7 @@ export const findNextStartCode = (stream: BitStream): boolean => {
 }
 
 export type SequenceHeader = {
-  sequence_header_code: StartCode.SequenceHeaderCode,
+  sequence_header_code: typeof StartCode.SequenceHeaderCode,
   horizontal_size_value: number,
   vertical_size_value: number,
   aspect_ratio_information: number,
@@ -201,7 +201,7 @@ export const parseSeqenceHeader = (stream: BitStream): SequenceHeader | null => 
 };
 
 export type UserData = {
-  user_data_start_code: StartCode.UserDataStartCode;
+  user_data_start_code: typeof StartCode.UserDataStartCode;
   user_data: number[]
 };
 export const parseUserData = (stream: BitStream): UserData | null => {
@@ -219,7 +219,7 @@ export const parseUserData = (stream: BitStream): UserData | null => {
 }
 
 export type SequenceExtension = {
-  extension_start_code_identifier: ExtentionIdentifier.SequenceExtensionID,
+  extension_start_code_identifier: typeof ExtentionIdentifier.SequenceExtensionID,
   profile_and_level_indication: number,
   progressive_sequence: boolean,
   chroma_format: number,
@@ -262,7 +262,7 @@ export const parseSequenceExtension = (stream: BitStream): SequenceExtension | n
 }
 
 export type ScalableExtension = {
-  extension_start_code_identifier: ExtentionIdentifier.SequenceScalableExtensionID,
+  extension_start_code_identifier: typeof ExtentionIdentifier.SequenceScalableExtensionID,
   scalable_mode: number,
   layer_id: number,
   // "spatial scalability"
@@ -329,7 +329,7 @@ export const parseScalableExtension = (stream: BitStream): ScalableExtension | n
 }
 
 export type PictureCodingExtension = {
-  extension_start_code_identifier: ExtentionIdentifier.PictureCodingExtensionID,
+  extension_start_code_identifier: typeof ExtentionIdentifier.PictureCodingExtensionID,
   f_code_0_0: number,
   f_code_0_1: number,
   f_code_1_0: number,
@@ -426,7 +426,7 @@ export const parseGroupOfPicturesHeader = (stream: BitStream) => {
 }
 
 export type PictureHeader = {
-  picture_start_code: StartCode.PictureStartCode,
+  picture_start_code: typeof StartCode.PictureStartCode,
   temporal_reference: number,
   picture_coding_type: number,
   vbv_delay: number,
