@@ -27,16 +27,16 @@ export const ExtentionIdentifier = {
   PictureTemporalScalableExtensionID: 0b1010
 } as const;
 
-export enum PictureCodingType {
+export const PictureCodingType = {
   // 0b000 = PictureCodingType
-  I = 0b001,
-  P = 0b010,
-  B = 0b011
+  I: 0b001,
+  P: 0b010,
+  B: 0b011
   // 0b100 = Shall not be used
   // 0b101 = Reserved
   // 0b110 = Reserved
   // 0b110 = Reserved
-};
+} as const;
 
 export type MacroBlockParametersFlags = {
   macroblock_quant: boolean;
