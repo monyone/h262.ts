@@ -77,7 +77,7 @@ export const macroblockParams: MacroBlockParametersFlags[][] = [
   ],
   [],
   [],
-];
+] as const;
 
 export const zigzagOrder = [
   [  0,  1,  5,  6, 14, 15, 27, 28],
@@ -88,7 +88,7 @@ export const zigzagOrder = [
   [ 20, 22, 33, 38, 46, 51, 55, 60],
   [ 21, 34, 37, 47, 50, 56, 59, 61],
   [ 35, 36, 48, 49, 57, 58, 62, 63],
-];
+] as const;
 export const alternateOrder = [
   [  0,  4,  6, 20, 22, 36, 38, 52],
   [  1,  5,  7, 21, 23, 37, 39, 53],
@@ -98,7 +98,7 @@ export const alternateOrder = [
   [ 11, 16, 27, 31, 43, 47, 57, 61],
   [ 12, 15, 28, 32, 44, 48, 58, 62],
   [ 13, 14, 29, 33, 45, 49, 59, 63],
-];
+] as const;
 
 const default_intra_quantiser_matrix = [
    8, 16, 19, 22, 26, 27, 29, 34,
@@ -109,7 +109,7 @@ const default_intra_quantiser_matrix = [
   26, 27, 29, 32, 35, 40, 48, 58,
   26, 27, 29, 34, 38, 46, 56, 69,
   27, 29, 35, 38, 46, 56, 69, 83,
-];
+] as const;
 
 const default_non_intra_quantiser_matrix = [
   16, 16, 16, 16, 16, 16, 16, 16,
@@ -120,13 +120,13 @@ const default_non_intra_quantiser_matrix = [
   16, 16, 16, 16, 16, 16, 16, 16,
   16, 16, 16, 16, 16, 16, 16, 16,
   16, 16, 16, 16, 16, 16, 16, 16,
-];
+] as const;
 
 //*
 export const q_scale = [
   [0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62],
   [0,1,2,3,4,5,6,7,8,10,12,14,16,18,20,22,24,28,32,36,40,44,48,52,56,64,72,80,88,96,104,112],
-];
+] as const;
 
 export const findNextStartCode = (stream: BitStream): boolean => {
   try {
@@ -151,10 +151,8 @@ export type SequenceHeader = {
   bit_rate_value: number,
   vbv_buffer_size_value: number,
   constrained_parameters_flag: boolean,
-  load_intra_quantiser_matrix: boolean,
-  intra_quantiser_matrix: number[],
-  load_non_intra_quantiser_matrix: boolean,
-  non_intra_quantiser_matrix: number[]
+  intra_quantiser_matrix: readonly number[],
+  non_intra_quantiser_matrix: readonly number[]
 };
 export const parseSeqenceHeader = (stream: BitStream): SequenceHeader | null => {
   const sequence_header_code = stream.readUint32();
@@ -164,25 +162,13 @@ export const parseSeqenceHeader = (stream: BitStream): SequenceHeader | null => 
   const aspect_ratio_information = stream.readBits(4);
   const frame_rate_code = stream.readBits(4);
   const bit_rate_value = stream.readBits(18);
-  stream.readBool();
+  stream.readBool(); // marker_bit
   const vbv_buffer_size_value = stream.readBits(10);
   const constrained_parameters_flag = stream.readBool();
   const load_intra_quantiser_matrix = stream.readBool();
-  let intra_quantiser_matrix: number[] = default_intra_quantiser_matrix;
-  if (load_intra_quantiser_matrix) {
-    intra_quantiser_matrix = [];
-    for (let i = 0; i < BLOCK_DCT_COEFFS; i++) {
-      intra_quantiser_matrix.push(stream.readUint8());
-    }
-  }
+  const intra_quantiser_matrix = load_intra_quantiser_matrix ? Array.from({ length: BLOCK_DCT_COEFFS}, () => stream.readUint8()) : default_intra_quantiser_matrix;
   const load_non_intra_quantiser_matrix = stream.readBool();
-  let non_intra_quantiser_matrix: number[] = default_non_intra_quantiser_matrix;
-  if (load_non_intra_quantiser_matrix) {
-    non_intra_quantiser_matrix = [];
-    for (let i = 0; i < BLOCK_DCT_COEFFS; i++) {
-      non_intra_quantiser_matrix.push(stream.readUint8());
-    }
-  }
+  const non_intra_quantiser_matrix = load_non_intra_quantiser_matrix ? Array.from({ length: BLOCK_DCT_COEFFS}, () => stream.readUint8()) : default_non_intra_quantiser_matrix;
 
   return {
     sequence_header_code,
@@ -193,9 +179,7 @@ export const parseSeqenceHeader = (stream: BitStream): SequenceHeader | null => 
     bit_rate_value,
     vbv_buffer_size_value,
     constrained_parameters_flag,
-    load_intra_quantiser_matrix,
     intra_quantiser_matrix,
-    load_non_intra_quantiser_matrix,
     non_intra_quantiser_matrix
   }
 };
