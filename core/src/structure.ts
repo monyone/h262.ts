@@ -384,13 +384,16 @@ export type PictureCodingExtension = {
   repeat_first_field: boolean,
   chroma_420_type: boolean,
   progressive_frame: boolean,
-  composite_display_flag: boolean,
-  v_axis: boolean | null,
-  field_sequence: number | null,
-  sub_carrier: boolean | null,
-  burst_amplitude: number | null,
-  sub_carrier_phase: number | null
-}
+} & ({
+  composite_display_flag: false
+} | {
+  composite_display_flag: true,
+  v_axis: boolean,
+  field_sequence: number,
+  sub_carrier: boolean
+  burst_amplitude: number
+  sub_carrier_phase: number;
+})
 export const parsePictureCodingExtension = (stream: BitStream): PictureCodingExtension | null => {
   const extension_start_code_identifier = stream.readBits(4);
   if (extension_start_code_identifier !== ExtentionIdentifier.PictureCodingExtensionID) { return null; }
@@ -410,19 +413,33 @@ export const parsePictureCodingExtension = (stream: BitStream): PictureCodingExt
   const chroma_420_type = stream.readBool();
   const progressive_frame = stream.readBool();
   const composite_display_flag = stream.readBool();
-  let v_axis: boolean | null = null;
-  let field_sequence: number | null = null;
-  let sub_carrier: boolean | null = null;
-  let burst_amplitude: number | null = null;
-  let sub_carrier_phase: number | null = null;
-  if (composite_display_flag) {
-    v_axis = stream.readBool();
-    field_sequence = stream.readBits(3);
-    sub_carrier = stream.readBool();
-    burst_amplitude = stream.readBits(7);
-    sub_carrier_phase = stream.readUint8();
+  if (!composite_display_flag) {
+    return {
+      extension_start_code_identifier,
+      f_code_0_0,
+      f_code_0_1,
+      f_code_1_0,
+      f_code_1_1,
+      intra_dc_precision,
+      picture_structure,
+      top_field_first,
+      frame_pred_frame_dct,
+      concealment_motion_vectors,
+      q_scale_type,
+      intra_vlc_format,
+      alternate_scan,
+      repeat_first_field,
+      chroma_420_type,
+      progressive_frame,
+      composite_display_flag,
+    }
   }
 
+  const v_axis = stream.readBool();
+  const field_sequence = stream.readBits(3);
+  const sub_carrier = stream.readBool();
+  const burst_amplitude = stream.readBits(7);
+  const sub_carrier_phase = stream.readUint8();
   return {
     extension_start_code_identifier,
     f_code_0_0,
