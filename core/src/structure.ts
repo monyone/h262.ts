@@ -261,71 +261,110 @@ export const parseSequenceExtension = (stream: BitStream): SequenceExtension | n
   };
 }
 
+export const ScalableMode = {
+  DATA_PARTITIONING: 0b00,
+  SPATIAL_SCALABILITY: 0b01,
+  SNR_SCALABILITY: 0b10,
+  TEMPORAL_SCALABILITY: 0b11,
+} as const;
 export type ScalableExtension = {
   extension_start_code_identifier: typeof ExtentionIdentifier.SequenceScalableExtensionID,
-  scalable_mode: number,
   layer_id: number,
-  // "spatial scalability"
-  lower_layer_prediction_horizontal_size: number | null,
-  lower_layer_prediction_vertical_size: number | null,
-  horizontal_subsampling_factor_m: number | null,
-  horizontal_subsampling_factor_n: number | null,
-  vertical_subsampling_factor_m: number | null,
-  vertical_subsampling_factor_n: number | null,
-  // "Temporal scalability"
-  picture_mux_enable: boolean | null,
-  mux_to_progressive_sequence: boolean | null,
-  picture_mux_order: number | null,
-  picture_mux_factor: number | null
-}
+} & ({
+  scalable_mode: typeof ScalableMode.DATA_PARTITIONING,
+} | {
+  scalable_mode: typeof ScalableMode.SPATIAL_SCALABILITY
+  lower_layer_prediction_horizontal_size: number,
+  lower_layer_prediction_vertical_size: number,
+  horizontal_subsampling_factor_m: number,
+  horizontal_subsampling_factor_n: number,
+  vertical_subsampling_factor_m: number,
+  vertical_subsampling_factor_n: number,
+} | {
+  scalable_mode: typeof ScalableMode.SNR_SCALABILITY,
+} | {
+  scalable_mode: typeof ScalableMode.TEMPORAL_SCALABILITY,
+  picture_mux_order: number,
+  picture_mux_factor: number,
+} & ({
+  picture_mux_enable: true,
+  mux_to_progressive_sequence: boolean,
+} | {
+  picture_mux_enable: false,
+}));
 export const parseScalableExtension = (stream: BitStream): ScalableExtension | null => {
   const extension_start_code_identifier = stream.readBits(4);
   if (extension_start_code_identifier !== ExtentionIdentifier.SequenceScalableExtensionID) { return null; }
-  const scalable_mode = stream.readBits(2);
+  const scalable_mode = stream.readBits(2) as (typeof ScalableMode)[keyof typeof ScalableMode];
   const layer_id = stream.readBits(4);
-  let lower_layer_prediction_horizontal_size: number | null = null;
-  let lower_layer_prediction_vertical_size: number | null = null;
-  let horizontal_subsampling_factor_m: number | null = null;
-  let horizontal_subsampling_factor_n: number | null = null;
-  let vertical_subsampling_factor_m: number | null = null;
-  let vertical_subsampling_factor_n: number | null = null;
-  if (scalable_mode === 0b01) { // "spatial scalability"
-    lower_layer_prediction_horizontal_size = stream.readBits(14);
-    stream.readBool();
-    lower_layer_prediction_vertical_size = stream.readBits(14);
-    horizontal_subsampling_factor_m = stream.readBits(5);
-    horizontal_subsampling_factor_n = stream.readBits(5);
-    vertical_subsampling_factor_m = stream.readBits(5);
-    vertical_subsampling_factor_n = stream.readBits(5);
-  }
-  let picture_mux_enable: boolean | null = null;
-  let mux_to_progressive_sequence: boolean | null = null;
-  let picture_mux_order: number | null = null;
-  let picture_mux_factor: number | null = null;
-  if (scalable_mode === 0b11) { // "Temporal scalability"
-    picture_mux_enable = stream.readBool();
-    if (picture_mux_enable) {
-      mux_to_progressive_sequence = stream.readBool();
-    }
-    picture_mux_order = stream.readBits(3);
-    picture_mux_factor = stream.readBits(3);
-  }
 
-  return {
-    extension_start_code_identifier,
-    scalable_mode,
-    layer_id,
-    lower_layer_prediction_horizontal_size,
-    lower_layer_prediction_vertical_size,
-    horizontal_subsampling_factor_m,
-    horizontal_subsampling_factor_n,
-    vertical_subsampling_factor_m,
-    vertical_subsampling_factor_n,
-    picture_mux_enable,
-    mux_to_progressive_sequence,
-    picture_mux_order,
-    picture_mux_factor
-  };
+  switch (scalable_mode) {
+    case ScalableMode.DATA_PARTITIONING: {
+      return {
+        extension_start_code_identifier,
+        scalable_mode,
+        layer_id,
+      };
+    }
+    case ScalableMode.SPATIAL_SCALABILITY: {
+      const lower_layer_prediction_horizontal_size = stream.readBits(14);
+      const _ = stream.readBool(); // marker_bit
+      const lower_layer_prediction_vertical_size = stream.readBits(14);
+      const horizontal_subsampling_factor_m = stream.readBits(5);
+      const horizontal_subsampling_factor_n = stream.readBits(5);
+      const vertical_subsampling_factor_m = stream.readBits(5);
+      const vertical_subsampling_factor_n = stream.readBits(5);
+
+      return {
+        extension_start_code_identifier,
+        scalable_mode,
+        layer_id,
+        lower_layer_prediction_horizontal_size,
+        lower_layer_prediction_vertical_size,
+        horizontal_subsampling_factor_m,
+        horizontal_subsampling_factor_n,
+        vertical_subsampling_factor_m,
+        vertical_subsampling_factor_n
+      };
+    }
+    case ScalableMode.SNR_SCALABILITY: {
+      return {
+        extension_start_code_identifier,
+        scalable_mode,
+        layer_id,
+      };
+    }
+    case ScalableMode.TEMPORAL_SCALABILITY: {
+      const picture_mux_enable = stream.readBool();
+      if (picture_mux_enable) {
+        const mux_to_progressive_sequence = stream.readBool();
+        const picture_mux_order = stream.readBits(3);
+        const picture_mux_factor = stream.readBits(3);
+
+        return {
+          extension_start_code_identifier,
+          scalable_mode,
+          layer_id,
+          picture_mux_enable,
+          mux_to_progressive_sequence,
+          picture_mux_order,
+          picture_mux_factor
+        };
+      } else {
+        const picture_mux_order = stream.readBits(3);
+        const picture_mux_factor = stream.readBits(3);
+
+        return {
+          extension_start_code_identifier,
+          scalable_mode,
+          layer_id,
+          picture_mux_enable,
+          picture_mux_order,
+          picture_mux_factor
+        };
+      }
+    }
+  }
 }
 
 export type PictureCodingExtension = {
