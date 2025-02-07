@@ -158,8 +158,7 @@ export default class H262Decoder {
 
     const { macroblock_intra } = params;
     let index = 0;
-    const coeffs = [];
-    for (let i = 0; i < BLOCK_DCT_COEFFS; i++) { coeffs.push(0); }
+    const coeffs = Array.from({ length: BLOCK_DCT_COEFFS }, () => 0);
 
     // read coeff in VLC
     if (macroblock_intra) {
@@ -179,33 +178,33 @@ export default class H262Decoder {
       index += 1;
     } else {
       const result = DCT_COEFFICIENTS_ZERO_DC_VLC.get(stream);
-      if (result == null) { return null; }
+      if (result == null|| result.eob) { return null; }
 
-      let { run, level } = result;
-      if (stream.readBool()) {
-        level = -level;
+      if (result.escape) {
+        const run = stream.readBits(6)
+        const level = (stream.readBits(12) << 20) >> 20;
+        index += run
+        coeffs[index++] = level;
+      } else {
+        const { run, level } = result;
+        index += run;
+        coeffs[index++] = stream.readBool() ? -level : level;
       }
-
-      index += run;
-      coeffs[index++] = level;
     }
     while (true) {
       const result = DCT_COEFFICIENTS_ZERO_OTHER_VLC.get(stream);
-      if (result == null) { break; }
+      if (result == null || result.eob) { break; }
 
-      const { eob, escape } = result;
-      let { run, level } = result;
-
-      if (eob) { break; }
-      if (escape) {
-        run = stream.readBits(6)
-        level = (stream.readBits(12) << 20) >> 20;
-      } else if (stream.readBool()) {
-        level = -level;
+      if (result.escape) {
+        const run = stream.readBits(6)
+        const level = (stream.readBits(12) << 20) >> 20;
+        index += run
+        coeffs[index++] = level;
+      } else {
+        const { run, level } = result;
+        index += run;
+        coeffs[index++] = stream.readBool() ? -level : level;
       }
-
-      index += run
-      coeffs[index++] = level;
     }
 
     // dequantize
