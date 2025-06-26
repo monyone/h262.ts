@@ -33,7 +33,7 @@ export const ExtensionStartCode = {
   PictureDisplayExtension: 0b0111,
   PictureCodingExtension: 0b1000,
   PictureSpatialScalableExtension: 0b1001,
-  PictureTemporalScalableExtensioD: 0b1010
+  PictureTemporalScalableExtension: 0b1010
 } as const;
 
 
@@ -187,7 +187,7 @@ export type UserData = {
   user_data: number[]
 };
 export const UserData = {
-  async from(reader: BitReader): Promise<UserData> {
+  from(reader: BitReader): UserData {
     const user_data: number[] = [];
     while ((reader.peek(24)) !== 0x000001) {
       user_data.push(reader.read(8));
@@ -565,7 +565,7 @@ const PictureTemporalScalableExtension = {
   }
 };
 
-export type PictureSpatialCcalableExtension = {
+export type PictureSpatialScalableExtension = {
   lower_layer_temporal_reference: number;
   lower_layer_horizontal_offset: number;
   lower_layer_vertical_offset: number;
@@ -573,8 +573,8 @@ export type PictureSpatialCcalableExtension = {
   lower_layer_progressive_frame: boolean;
   lower_layer_deinterlaced_field_select: boolean;
 };
-const PictureSpatialCcalableExtension = {
-  from(reader: BitReader): PictureSpatialCcalableExtension {
+const PictureSpatialScalableExtension = {
+  from(reader: BitReader): PictureSpatialScalableExtension {
     const lower_layer_temporal_reference = reader.read(10);
     reader.skip(1); // marker_bit
     const lower_layer_horizontal_offset= reader.read(15);
@@ -646,3 +646,82 @@ export const GroupOfPicturesHeader = {
     }
   }
 };
+
+export type VideoSequenceExtensions = SequenceExtension | SequenceDisplayExtension | QuantMatrixExtension | SequenceScalableExtension | PictureDisplayExtension | PictureCodingExtension | PictureSpatialScalableExtension | PictureTemporalScalableExtension | CopyrightExtension;
+export type VideoSequence = SequenceHeader | VideoSequenceExtensions | UserData | GroupOfPicturesHeader;
+
+export function* iterate(reader: BitReader): Iterable<VideoSequence> {
+  while (!reader.empty()) {
+    if (!skipUntilStartCode(reader)) { continue; }
+
+    const startcode = reader.read(8);
+    console.log(startcode.toString(16));
+
+    switch(startcode) {
+      case StartCode.SequenceHeaderCode:
+        yield SequenceHeader.from(reader);
+        break;
+      case StartCode.UserDataStartCode:
+        yield UserData.from(reader);
+        break;
+      case StartCode.ExtensionStartCode: {
+        const extension_start_code = reader.read(4);
+        switch (extension_start_code) {
+            case ExtensionStartCode.SequenceExtension: {
+              yield SequenceExtension.from(reader);
+              break;
+            }
+            case ExtensionStartCode.SequenceDisplayExtension: {
+              yield SequenceDisplayExtension.from(reader);
+              break;
+            }
+            case ExtensionStartCode.QuantMatrixExtension: {
+              yield QuantMatrixExtension.from(reader);
+              break;
+            }
+            case ExtensionStartCode.CopyrightExtension: {
+              yield CopyrightExtension.from(reader);
+              break;
+            }
+            case ExtensionStartCode.SequenceScalableExtension: {
+              yield SequenceScalableExtension.from(reader);
+              break;
+            }
+            case ExtensionStartCode.PictureDisplayExtension: {
+              //yield PictureDisplayExtension.from(reader);
+              break;
+            }
+            case ExtensionStartCode.PictureCodingExtension: {
+              yield PictureCodingExtension.from(reader);
+              break;
+            }
+            case ExtensionStartCode.PictureSpatialScalableExtension: {
+              yield PictureSpatialScalableExtension.from(reader);
+              break;
+            }
+            case ExtensionStartCode.PictureTemporalScalableExtension: {
+              yield PictureTemporalScalableExtension.from(reader);
+              break;
+            }
+            default:
+              break;
+          }
+      }
+      case StartCode.GroupStartCode:
+        yield GroupOfPicturesHeader.from(reader);
+        break;
+      case StartCode.SequenceEndCode:
+        break;
+      case StartCode.PictureStartCode:
+        break;
+      default: {
+        /*
+        if (StartCode.MinSliceStartCode <= stream.peekUint32() && stream.peekUint32() <= StartCode.MaxSliceStartCode) {
+          this.#slice(stream);
+        }
+        */
+        break;
+      }
+    }
+  }
+}
