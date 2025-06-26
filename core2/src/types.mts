@@ -627,6 +627,88 @@ const CopyrightExtension = {
   }
 };
 
+export type PictureHeader = {
+  temporal_reference: number,
+  vbv_delay: number,
+} & ({
+  picture_coding_type: (typeof PictureCodingType.I),
+} | {
+  picture_coding_type: (typeof PictureCodingType.P),
+  full_pel_forward_vector: boolean,
+  forward_f_code: number,
+} | {
+  picture_coding_type: (typeof PictureCodingType.B),
+  full_pel_forward_vector: boolean,
+  forward_f_code: number,
+  full_pel_backward_vector: boolean,
+  backward_f_code: number,
+}) & {
+  extra_information_picture: number[],
+};
+export const PictureHeader = {
+  from(reader: BitReader): PictureHeader {
+    const temporal_reference = reader.read(10);
+    const picture_coding_type = reader.read(3) as (typeof PictureCodingType)[keyof typeof PictureCodingType];
+    const vbv_delay = reader.read(16);
+
+    if (picture_coding_type === PictureCodingType.P) {
+      const full_pel_forward_vector = bool(reader.read(1)); // H.262 is zero
+      const forward_f_code = reader.read(3); // H.262 is 111
+      const extra_information_picture: number[] = [];
+      while (reader.peek(1) === 1) {
+        reader.skip(1); // extra_bit_picture
+        extra_information_picture.push(reader.read(8));
+      }
+      reader.skip(1); // extra_bit_picture
+
+      return {
+        temporal_reference,
+        picture_coding_type,
+        vbv_delay,
+        full_pel_forward_vector,
+        forward_f_code,
+        extra_information_picture,
+      };
+    }
+    if (picture_coding_type === PictureCodingType.B) {
+      const full_pel_forward_vector = bool(reader.read(1)); // H.262 is zero
+      const forward_f_code = reader.read(3); // H.262 is 111
+      const full_pel_backward_vector = bool(reader.read(1)); // H.262 is zero
+      const backward_f_code = reader.read(3); // H.262 is 111
+      const extra_information_picture: number[] = [];
+      while (reader.peek(1) === 1) {
+        reader.skip(1); // extra_bit_picture
+        extra_information_picture.push(reader.read(8));
+      }
+      reader.skip(1); // extra_bit_picture
+
+      return {
+        temporal_reference,
+        picture_coding_type,
+        vbv_delay,
+        full_pel_forward_vector,
+        forward_f_code,
+        full_pel_backward_vector,
+        backward_f_code,
+        extra_information_picture,
+      };
+    }
+
+    const extra_information_picture: number[] = [];
+    while (reader.peek(1) === 1) {
+      reader.skip(1); // extra_bit_picture
+      extra_information_picture.push(reader.read(8));
+    }
+    reader.skip(1); // extra_bit_picture
+
+    return {
+      temporal_reference,
+      picture_coding_type,
+      vbv_delay,
+      extra_information_picture,
+    };
+  }
+};
 
 export type GroupOfPicturesHeader = {
   time_code: number,
