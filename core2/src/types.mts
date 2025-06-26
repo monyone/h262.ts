@@ -24,16 +24,16 @@ export const StartCode = {
   GroupStartCode: 0xB8
 } as const;
 
-export const ExtensionStartCodeIdentifier = {
-  SequenceExtensionID: 0b0001,
-  SequenceDisplayExtensionID: 0b0010,
-  QuantMatrixExtensionID: 0b0011,
-  CopyrightExtensionID: 0b0100,
-  SequenceScalableExtensionID: 0b0101,
-  PictureDisplayExtensionID: 0b0111,
-  PictureCodingExtensionID: 0b1000,
-  PictureSpatialScalableExtensionID: 0b1001,
-  PictureTemporalScalableExtensionID: 0b1010
+export const ExtensionStartCode = {
+  SequenceExtension: 0b0001,
+  SequenceDisplayExtension: 0b0010,
+  QuantMatrixExtension: 0b0011,
+  CopyrightExtension: 0b0100,
+  SequenceScalableExtension: 0b0101,
+  PictureDisplayExtension: 0b0111,
+  PictureCodingExtension: 0b1000,
+  PictureSpatialScalableExtension: 0b1001,
+  PictureTemporalScalableExtensioD: 0b1010
 } as const;
 
 
@@ -275,6 +275,358 @@ export const SequenceDisplayExtension = {
     }
   }
 };
+
+export const ScalableMode = {
+  DATA_PARTITIONING: 0b00,
+  SPATIAL_SCALABILITY: 0b01,
+  SNR_SCALABILITY: 0b10,
+  TEMPORAL_SCALABILITY: 0b11,
+} as const;
+export type SequenceScalableExtension = {
+  layer_id: number,
+} & ({
+  scalable_mode: typeof ScalableMode.DATA_PARTITIONING,
+} | {
+  scalable_mode: typeof ScalableMode.SPATIAL_SCALABILITY
+  lower_layer_prediction_horizontal_size: number,
+  lower_layer_prediction_vertical_size: number,
+  horizontal_subsampling_factor_m: number,
+  horizontal_subsampling_factor_n: number,
+  vertical_subsampling_factor_m: number,
+  vertical_subsampling_factor_n: number,
+} | {
+  scalable_mode: typeof ScalableMode.SNR_SCALABILITY,
+} | {
+  scalable_mode: typeof ScalableMode.TEMPORAL_SCALABILITY,
+  picture_mux_order: number,
+  picture_mux_factor: number,
+} & ({
+  picture_mux_enable: true,
+  mux_to_progressive_sequence: boolean,
+} | {
+  picture_mux_enable: false,
+}));
+export const SequenceScalableExtension = {
+  from(reader: BitReader): SequenceScalableExtension {
+    const scalable_mode = reader.read(2) as (typeof ScalableMode)[keyof typeof ScalableMode];
+    const layer_id = reader.read(4);
+
+    switch (scalable_mode) {
+      case ScalableMode.DATA_PARTITIONING: {
+        return {
+          scalable_mode,
+          layer_id,
+        };
+      }
+      case ScalableMode.SPATIAL_SCALABILITY: {
+        const lower_layer_prediction_horizontal_size = reader.read(14);
+        reader.skip(1); // marker_bit
+        const lower_layer_prediction_vertical_size = reader.read(14);
+        const horizontal_subsampling_factor_m = reader.read(5);
+        const horizontal_subsampling_factor_n = reader.read(5);
+        const vertical_subsampling_factor_m = reader.read(5);
+        const vertical_subsampling_factor_n = reader.read(5);
+
+        return {
+          scalable_mode,
+          layer_id,
+          lower_layer_prediction_horizontal_size,
+          lower_layer_prediction_vertical_size,
+          horizontal_subsampling_factor_m,
+          horizontal_subsampling_factor_n,
+          vertical_subsampling_factor_m,
+          vertical_subsampling_factor_n
+        };
+      }
+      case ScalableMode.SNR_SCALABILITY: {
+        return {
+          scalable_mode,
+          layer_id,
+        };
+      }
+      case ScalableMode.TEMPORAL_SCALABILITY: {
+        const picture_mux_enable = bool(reader.read(1));
+        if (picture_mux_enable) {
+          const mux_to_progressive_sequence = bool(reader.read(1));
+          const picture_mux_order = reader.read(3);
+          const picture_mux_factor = reader.read(3);
+
+          return {
+            scalable_mode,
+            layer_id,
+            picture_mux_enable,
+            mux_to_progressive_sequence,
+            picture_mux_order,
+            picture_mux_factor
+          };
+        } else {
+          const picture_mux_order = reader.read(3);
+          const picture_mux_factor = reader.read(3);
+
+          return {
+            scalable_mode,
+            layer_id,
+            picture_mux_enable,
+            picture_mux_order,
+            picture_mux_factor
+          };
+        }
+      }
+    }
+  }
+};
+
+export const PictureStructure = {
+  Reserved: 0b00,
+  TopField: 0b01,
+  BottomField: 0b10,
+  FramePicture: 0b11,
+} as const;
+export type PictureCodingExtension = {
+  f_code_0_0: number,
+  f_code_0_1: number,
+  f_code_1_0: number,
+  f_code_1_1: number,
+  intra_dc_precision: number,
+  picture_structure: (typeof PictureStructure)[keyof typeof PictureStructure],
+  top_field_first: boolean,
+  frame_pred_frame_dct: boolean,
+  concealment_motion_vectors: boolean,
+  q_scale_type: number,
+  intra_vlc_format: boolean,
+  alternate_scan: boolean,
+  repeat_first_field: boolean,
+  chroma_420_type: boolean,
+  progressive_frame: boolean,
+} & ({
+  composite_display_flag: false
+} | {
+  composite_display_flag: true,
+  v_axis: boolean,
+  field_sequence: number,
+  sub_carrier: boolean
+  burst_amplitude: number
+  sub_carrier_phase: number;
+});
+export const PictureCodingExtension = {
+  from(stream: BitReader): PictureCodingExtension {
+    const f_code_0_0 = stream.read(4);
+    const f_code_0_1 = stream.read(4);
+    const f_code_1_0 = stream.read(4);
+    const f_code_1_1 = stream.read(4);
+    const intra_dc_precision = stream.read(2);
+    const picture_structure = stream.read(2) as (typeof PictureStructure)[keyof typeof PictureStructure];
+    const top_field_first = bool(stream.read(1));
+    const frame_pred_frame_dct = bool(stream.read(1));
+    const concealment_motion_vectors = bool(stream.read(1));
+    const q_scale_type = stream.read(1);
+    const intra_vlc_format = bool(stream.read(1));
+    const alternate_scan = bool(stream.read(1));
+    const repeat_first_field = bool(stream.read(1));
+    const chroma_420_type = bool(stream.read(1));
+    const progressive_frame = bool(stream.read(1));
+    const composite_display_flag = bool(stream.read(1));
+    if (!composite_display_flag) {
+      return {
+        f_code_0_0,
+        f_code_0_1,
+        f_code_1_0,
+        f_code_1_1,
+        intra_dc_precision,
+        picture_structure,
+        top_field_first,
+        frame_pred_frame_dct,
+        concealment_motion_vectors,
+        q_scale_type,
+        intra_vlc_format,
+        alternate_scan,
+        repeat_first_field,
+        chroma_420_type,
+        progressive_frame,
+        composite_display_flag,
+      }
+    }
+
+    const v_axis = bool(stream.read(1))
+    const field_sequence = stream.read(3);
+    const sub_carrier = bool(stream.read(1))
+    const burst_amplitude = stream.read(7);
+    const sub_carrier_phase = stream.read(8);
+    return {
+      f_code_0_0,
+      f_code_0_1,
+      f_code_1_0,
+      f_code_1_1,
+      intra_dc_precision,
+      picture_structure,
+      top_field_first,
+      frame_pred_frame_dct,
+      concealment_motion_vectors,
+      q_scale_type,
+      intra_vlc_format,
+      alternate_scan,
+      repeat_first_field,
+      chroma_420_type,
+      progressive_frame,
+      composite_display_flag,
+      v_axis,
+      field_sequence,
+      sub_carrier,
+      burst_amplitude,
+      sub_carrier_phase
+    }
+  }
+};
+
+export type QuantMatrixExtension = {
+  intra_quantiser_matrix: readonly number[],
+  non_intra_quantiser_matrix: readonly number[],
+  chroma_intra_quantiser_matrix: readonly number[],
+  chroma_non_intra_quantiser_matrix: readonly number[],
+};
+export const QuantMatrixExtension = {
+  from(reader: BitReader): QuantMatrixExtension {
+    const load_intra_quantiser_matrix = bool(reader.read(1));
+    const intra_quantiser_matrix = load_intra_quantiser_matrix ? array(BLOCK_DCT_COEFFS, 8, reader) : default_intra_quantiser_matrix
+    const load_non_intra_quantiser_matrix = bool(reader.read(1));
+    const non_intra_quantiser_matrix = load_non_intra_quantiser_matrix ? array(BLOCK_DCT_COEFFS, 8, reader) : default_non_intra_quantiser_matrix;
+    const load_chroma_intra_quantiser_matrix = bool(reader.read(1));
+    const chroma_intra_quantiser_matrix = load_chroma_intra_quantiser_matrix ? array(BLOCK_DCT_COEFFS, 8, reader) : default_intra_quantiser_matrix
+    const load_chroma_non_intra_quantiser_matrix = bool(reader.read(1));
+    const chroma_non_intra_quantiser_matrix = load_chroma_non_intra_quantiser_matrix ? array(BLOCK_DCT_COEFFS, 8, reader) : default_intra_quantiser_matrix
+
+
+    return {
+      intra_quantiser_matrix,
+      non_intra_quantiser_matrix,
+      chroma_intra_quantiser_matrix,
+      chroma_non_intra_quantiser_matrix,
+    };
+  }
+};
+
+export type PictureDisplayExtension = {
+  frame_centres: [frame_centre_horizontal_offset: number, frame_centre_vertical_offset: number][];
+};
+const number_of_frame_centre_offsets = (sequence_extension: SequenceExtension, picture_coding_extension: PictureCodingExtension): number => {
+  if (sequence_extension.progressive_sequence) {
+    if (picture_coding_extension.repeat_first_field) {
+      if (picture_coding_extension.top_field_first) {
+        return 3;
+      } else {
+        return 2;
+      }
+    } else {
+      return 1;
+    }
+  } else if (picture_coding_extension.picture_structure === PictureStructure.TopField || picture_coding_extension.picture_structure === PictureStructure.BottomField) {
+    return 1;
+  } else if (picture_coding_extension.repeat_first_field) {
+    return 3;
+  } else {
+    return 2;
+  }
+};
+export const PictureDisplayExtension = {
+  from(reader: BitReader, sequence_extension: SequenceExtension, picture_coding_extension: PictureCodingExtension): PictureDisplayExtension {
+    const frame_centres: [number, number][] = Array.from({
+      length: number_of_frame_centre_offsets(sequence_extension, picture_coding_extension)
+    }, (_) => {
+      const frame_centre_horizontal_offset = reader.read(16);
+      reader.skip(1); // marker_bit
+      const frame_centre_vertical_offset = reader.read(16);
+      reader.skip(1); // marker_bit
+      return [frame_centre_horizontal_offset, frame_centre_vertical_offset];
+    });
+
+    return {
+      frame_centres
+    };
+  }
+}
+
+export type PictureTemporalScalableExtension = {
+  reference_select_code: number;
+  forward_temporal_reference: number;
+  backward_temporal_reference: number;
+};
+const PictureTemporalScalableExtension = {
+  from(reader: BitReader): PictureTemporalScalableExtension {
+    const reference_select_code = reader.read(2);
+    const forward_temporal_reference = reader.read(10);
+    reader.skip(1); // marker_bit
+    const backward_temporal_reference = reader.read(10);
+
+    return {
+      reference_select_code,
+      forward_temporal_reference,
+      backward_temporal_reference,
+    };
+  }
+};
+
+export type PictureSpatialCcalableExtension = {
+  lower_layer_temporal_reference: number;
+  lower_layer_horizontal_offset: number;
+  lower_layer_vertical_offset: number;
+  spatial_temporal_weight_code_table_index: number;
+  lower_layer_progressive_frame: boolean;
+  lower_layer_deinterlaced_field_select: boolean;
+};
+const PictureSpatialCcalableExtension = {
+  from(reader: BitReader): PictureSpatialCcalableExtension {
+    const lower_layer_temporal_reference = reader.read(10);
+    reader.skip(1); // marker_bit
+    const lower_layer_horizontal_offset= reader.read(15);
+    reader.skip(1); // marker_bit
+    const lower_layer_vertical_offset = reader.read(15);
+    const spatial_temporal_weight_code_table_index = reader.read(2);
+    const lower_layer_progressive_frame = bool(reader.read(1));
+    const lower_layer_deinterlaced_field_select = bool(reader.read(1));
+
+    return {
+      lower_layer_temporal_reference,
+      lower_layer_horizontal_offset,
+      lower_layer_vertical_offset,
+      spatial_temporal_weight_code_table_index,
+      lower_layer_progressive_frame,
+      lower_layer_deinterlaced_field_select,
+    };
+  }
+};
+
+export type CopyrightExtension = {
+  copyright_flag: boolean,
+  copyright_identifier: number,
+  original_or_copy: boolean,
+  copyright_number_1: number,
+  copyright_number_2: number,
+  copyright_number_3: number,
+};
+const CopyrightExtension = {
+  from(reader: BitReader): CopyrightExtension {
+    const copyright_flag = bool(reader.read(1));
+    const copyright_identifier = reader.read(8);
+    const original_or_copy = bool(reader.read(1));
+    reader.skip(7); // reserved
+    reader.skip(1); // marker_bit
+    const copyright_number_1 = reader.read(20);
+    reader.skip(1); // marker_bit
+    const copyright_number_2 = reader.read(20);
+    reader.skip(1); // marker_bit
+    const copyright_number_3 = reader.read(20);
+
+    return {
+      copyright_flag,
+      copyright_identifier,
+      original_or_copy,
+      copyright_number_1,
+      copyright_number_2,
+      copyright_number_3,
+    };
+  }
+};
+
 
 export type GroupOfPicturesHeader = {
   time_code: number,
