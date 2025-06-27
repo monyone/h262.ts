@@ -14,3 +14,9 @@ export const ChromaFormat = {
   YUV422: 0b10,
   YUV444: 0b11,
 } as const;
+
+export const PictureStructure = {
+  TopField: 0b01,
+  BottomField: 0b10,
+  FramePicture: 0b11,
+} as const;

@@ -1,4 +1,4 @@
-import { BLOCK_DCT_COEFFS, PictureCodingType } from "./constants.mts";
+import { BLOCK_DCT_COEFFS, PictureCodingType, PictureStructure } from "./constants.mts";
 import BitReader from "./reader.mts";
 
 const bool = (value: number): boolean => {
@@ -72,11 +72,171 @@ export const macroblockParams: MacroBlockParametersFlags[][] = [
   ],
   // P
   [
-
+    {
+      macroblock_quant: false,
+      macroblock_motion_forward: true,
+      macroblock_motion_backward: false,
+      macroblock_pattern: true,
+      macroblock_intra: false,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: false,
+      macroblock_motion_forward: false,
+      macroblock_motion_backward: false,
+      macroblock_pattern: true,
+      macroblock_intra: false,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: false,
+      macroblock_motion_forward: true,
+      macroblock_motion_backward: false,
+      macroblock_pattern: false,
+      macroblock_intra: false,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: false,
+      macroblock_motion_forward: false,
+      macroblock_motion_backward: false,
+      macroblock_pattern: false,
+      macroblock_intra: true,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: true,
+      macroblock_motion_forward: true,
+      macroblock_motion_backward: false,
+      macroblock_pattern: true,
+      macroblock_intra: false,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: true,
+      macroblock_motion_forward: false,
+      macroblock_motion_backward: false,
+      macroblock_pattern: true,
+      macroblock_intra: false,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: true,
+      macroblock_motion_forward: false,
+      macroblock_motion_backward: false,
+      macroblock_pattern: false,
+      macroblock_intra: true,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
   ],
   // B
   [
-
+    {
+      macroblock_quant: false,
+      macroblock_motion_forward: true,
+      macroblock_motion_backward: true,
+      macroblock_pattern: false,
+      macroblock_intra: false,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: false,
+      macroblock_motion_forward: true,
+      macroblock_motion_backward: true,
+      macroblock_pattern: true,
+      macroblock_intra: false,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: false,
+      macroblock_motion_forward: false,
+      macroblock_motion_backward: true,
+      macroblock_pattern: false,
+      macroblock_intra: false,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: false,
+      macroblock_motion_forward: false,
+      macroblock_motion_backward: true,
+      macroblock_pattern: true,
+      macroblock_intra: false,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: false,
+      macroblock_motion_forward: true,
+      macroblock_motion_backward: false,
+      macroblock_pattern: false,
+      macroblock_intra: false,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: false,
+      macroblock_motion_forward: true,
+      macroblock_motion_backward: false,
+      macroblock_pattern: true,
+      macroblock_intra: false,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: false,
+      macroblock_motion_forward: false,
+      macroblock_motion_backward: false,
+      macroblock_pattern: false,
+      macroblock_intra: true,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: true,
+      macroblock_motion_forward: true,
+      macroblock_motion_backward: true,
+      macroblock_pattern: true,
+      macroblock_intra: false,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: true,
+      macroblock_motion_forward: true,
+      macroblock_motion_backward: false,
+      macroblock_pattern: true,
+      macroblock_intra: false,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: true,
+      macroblock_motion_forward: false,
+      macroblock_motion_backward: true,
+      macroblock_pattern: true,
+      macroblock_intra: false,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
+    {
+      macroblock_quant: true,
+      macroblock_motion_forward: false,
+      macroblock_motion_backward: false,
+      macroblock_pattern: false,
+      macroblock_intra: true,
+      spatial_temporal_weight_code_flag: false,
+      permitted_spatial_temporal_weight_classes: false
+    },
   ],
   [],
   [],
@@ -378,12 +538,6 @@ export const SequenceScalableExtension = {
   }
 };
 
-export const PictureStructure = {
-  Reserved: 0b00,
-  TopField: 0b01,
-  BottomField: 0b10,
-  FramePicture: 0b11,
-} as const;
 export type PictureCodingExtension = {
   f_code_0_0: number,
   f_code_0_1: number,
