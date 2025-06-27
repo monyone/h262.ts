@@ -132,14 +132,16 @@ export const q_scale = [
 
 export const skipUntilStartCode = (reader: BitReader): boolean => {
   reader.skipUntilAligned();
-  while (!reader.empty()) {
-    const start_code = reader.peek(24);
-    if (start_code === 0x000001) {
-      reader.skip(24);
-      return true;
+  try {
+    while (!reader.empty()) {
+      const start_code = reader.peek(24);
+      if (start_code === 0x000001) {
+        reader.skip(24);
+        return true;
+      }
+      reader.skip(8);
     }
-    reader.skip(8);
-  }
+  } catch {}
   return false;
 }
 
@@ -550,7 +552,7 @@ export type PictureTemporalScalableExtension = {
   forward_temporal_reference: number;
   backward_temporal_reference: number;
 };
-const PictureTemporalScalableExtension = {
+export const PictureTemporalScalableExtension = {
   from(reader: BitReader): PictureTemporalScalableExtension {
     const reference_select_code = reader.read(2);
     const forward_temporal_reference = reader.read(10);
@@ -573,7 +575,7 @@ export type PictureSpatialScalableExtension = {
   lower_layer_progressive_frame: boolean;
   lower_layer_deinterlaced_field_select: boolean;
 };
-const PictureSpatialScalableExtension = {
+export const PictureSpatialScalableExtension = {
   from(reader: BitReader): PictureSpatialScalableExtension {
     const lower_layer_temporal_reference = reader.read(10);
     reader.skip(1); // marker_bit
@@ -603,7 +605,7 @@ export type CopyrightExtension = {
   copyright_number_2: number,
   copyright_number_3: number,
 };
-const CopyrightExtension = {
+export const CopyrightExtension = {
   from(reader: BitReader): CopyrightExtension {
     const copyright_flag = bool(reader.read(1));
     const copyright_identifier = reader.read(8);
@@ -711,18 +713,31 @@ export const PictureHeader = {
 };
 
 export type GroupOfPicturesHeader = {
-  time_code: number,
+  drop_frame_flag: boolean,
+  time_code_hours: number,
+  time_code_minutes: number,
+  time_code_seconds: number,
+  time_code_pictures: number,
   closed_gop: boolean,
   broken_link: boolean,
 };
 export const GroupOfPicturesHeader = {
   from(reader: BitReader): GroupOfPicturesHeader {
-    const time_code = reader.read(25);
+    const drop_frame_flag = bool(reader.read(1));
+    const time_code_hours = reader.read(5);
+    const time_code_minutes = reader.read(6);
+    reader.skip(1); // marker_bit
+    const time_code_seconds = reader.read(6);
+    const time_code_pictures = reader.read(6);
     const closed_gop = bool(reader.read(1));
     const broken_link = bool(reader.read(1));
 
     return {
-      time_code,
+      drop_frame_flag,
+      time_code_hours,
+      time_code_minutes,
+      time_code_seconds,
+      time_code_pictures,
       closed_gop,
       broken_link,
     }
@@ -730,11 +745,11 @@ export const GroupOfPicturesHeader = {
 };
 
 export type VideoSequenceExtensions = SequenceExtension | SequenceDisplayExtension | QuantMatrixExtension | SequenceScalableExtension | PictureDisplayExtension | PictureCodingExtension | PictureSpatialScalableExtension | PictureTemporalScalableExtension | CopyrightExtension;
-export type VideoSequence = SequenceHeader | VideoSequenceExtensions | UserData | GroupOfPicturesHeader;
+export type VideoSequence = SequenceHeader | VideoSequenceExtensions | UserData | GroupOfPicturesHeader | PictureHeader;
 
 export function* iterate(reader: BitReader): Iterable<VideoSequence> {
   while (!reader.empty()) {
-    if (!skipUntilStartCode(reader)) { continue; }
+    if (!skipUntilStartCode(reader)) { break; }
 
     const startcode = reader.read(8);
     console.log(startcode.toString(16));
@@ -787,7 +802,8 @@ export function* iterate(reader: BitReader): Iterable<VideoSequence> {
             }
             default:
               break;
-          }
+        }
+        break;
       }
       case StartCode.GroupStartCode:
         yield GroupOfPicturesHeader.from(reader);
@@ -795,6 +811,7 @@ export function* iterate(reader: BitReader): Iterable<VideoSequence> {
       case StartCode.SequenceEndCode:
         break;
       case StartCode.PictureStartCode:
+        yield PictureHeader.from(reader);
         break;
       default: {
         /*

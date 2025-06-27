@@ -8,3 +8,9 @@ export const PictureCodingType = {
   P: 0b010,
   B: 0b011
 } as const;
+
+export const ChromaFormat = {
+  YUV420: 0b01,
+  YUV422: 0b10,
+  YUV444: 0b11,
+} as const;
