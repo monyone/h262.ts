@@ -63,3 +63,14 @@ export default class BitReader {
     return result;
   }
 }
+
+export const bool = (value: number): boolean => {
+  return value !== 0;
+}
+export const array = (length: number, bits: number, reader: BitReader): number[] => {
+  const result: number[] = [];
+  for (let i = 0; i < length; i++) {
+    result.push(reader.read(bits));
+  }
+  return result;
+}

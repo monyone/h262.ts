@@ -1,10 +1,8 @@
 import fs from "fs";
-import BitReader from "./reader.mts";
-import { iterate, SequenceHeader, skipUntilStartCode, StartCode } from "./types.mts";
+import Decoder from "./decoder.mts";
 
 const file = fs.readFileSync('./test.mpeg2');
-const reader = new BitReader(file);
+const decoder = new Decoder();
 
-for (const sequence of iterate(reader)) {
-  console.dir(sequence);
-}
+
+console.log(decoder.decode(file))

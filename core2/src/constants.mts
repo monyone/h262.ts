@@ -3,6 +3,10 @@ export const BLOCK_ROW = 8;
 export const BLOCK_SIZE = BLOCK_COL * BLOCK_ROW;
 export const BLOCK_DCT_COEFFS = BLOCK_SIZE;
 
+export const xy = (x: number, y: number): number => {
+  return y * BLOCK_ROW + x;
+}
+
 export class UnsupportedError extends Error {
   constructor(message: string, option?: ErrorOptions) {
     super(message, option);

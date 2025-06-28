@@ -1,16 +1,5 @@
 import { BLOCK_DCT_COEFFS, ChromaFormat, PictureCodingType, PictureStructure, supportedChromaFormat, supportedPictureCodingType, supportedPictureStructure } from "./constants.mts";
-import BitReader from "./reader.mts";
-
-const bool = (value: number): boolean => {
-  return value !== 0;
-}
-const array = (length: number, bits: number, reader: BitReader): number[] => {
-  const result: number[] = [];
-  for (let i = 0; i < length; i++) {
-    result.push(reader.read(bits));
-  }
-  return result;
-}
+import BitReader, { bool, array } from "./reader.mts";
 
 export const StartCode = {
   PictureStartCode: 0x00,
