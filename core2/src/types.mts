@@ -1,4 +1,4 @@
-import { BLOCK_DCT_COEFFS, PictureCodingType, PictureStructure } from "./constants.mts";
+import { BLOCK_DCT_COEFFS, ChromaFormat, PictureCodingType, PictureStructure, supportedChromaFormat, supportedPictureCodingType, supportedPictureStructure } from "./constants.mts";
 import BitReader from "./reader.mts";
 
 const bool = (value: number): boolean => {
@@ -364,7 +364,7 @@ export const UserData = {
 export type SequenceExtension = {
   profile_and_level_indication: number,
   progressive_sequence: boolean,
-  chroma_format: number,
+  chroma_format: (typeof ChromaFormat)[keyof typeof ChromaFormat],
   horizontal_size_extension: number,
   vertical_size_extension: number,
   bit_rate_extension: number,
@@ -377,7 +377,7 @@ export const SequenceExtension = {
   from(reader: BitReader): SequenceExtension {
     const profile_and_level_indication = reader.read(8);
     const progressive_sequence = bool(reader.read(1));
-    const chroma_format = reader.read(2);
+    const chroma_format = supportedChromaFormat(reader.read(2));
     const horizontal_size_extension = reader.read(2);
     const vertical_size_extension = reader.read(2);
     const bit_rate_extension = reader.read(2);
@@ -571,7 +571,7 @@ export const PictureCodingExtension = {
     const f_code_1_0 = stream.read(4);
     const f_code_1_1 = stream.read(4);
     const intra_dc_precision = stream.read(2);
-    const picture_structure = stream.read(2) as (typeof PictureStructure)[keyof typeof PictureStructure];
+    const picture_structure = supportedPictureStructure(stream.read(2));
     const top_field_first = bool(stream.read(1));
     const frame_pred_frame_dct = bool(stream.read(1));
     const concealment_motion_vectors = bool(stream.read(1));
@@ -650,7 +650,6 @@ export const QuantMatrixExtension = {
     const chroma_intra_quantiser_matrix = load_chroma_intra_quantiser_matrix ? array(BLOCK_DCT_COEFFS, 8, reader) : default_intra_quantiser_matrix
     const load_chroma_non_intra_quantiser_matrix = bool(reader.read(1));
     const chroma_non_intra_quantiser_matrix = load_chroma_non_intra_quantiser_matrix ? array(BLOCK_DCT_COEFFS, 8, reader) : default_intra_quantiser_matrix
-
 
     return {
       intra_quantiser_matrix,
@@ -804,7 +803,7 @@ export type PictureHeader = {
 export const PictureHeader = {
   from(reader: BitReader): PictureHeader {
     const temporal_reference = reader.read(10);
-    const picture_coding_type = reader.read(3) as (typeof PictureCodingType)[keyof typeof PictureCodingType];
+    const picture_coding_type = supportedPictureCodingType(reader.read(3));
     const vbv_delay = reader.read(16);
 
     if (picture_coding_type === PictureCodingType.P) {
