@@ -136,7 +136,7 @@ export default class H262Decoder {
       const decoded = this.#block(i < 4, Math.max(0, i - 3), macroblockParams[this.#picture_header.picture_coding_type][macroblock_type], reader);
       if (decoded == null) { return null; }
 
-      const rows = Math.floor(this.#sequence_header.horizontal_size_value / 16);
+      const rows = Math.ceil(this.#sequence_header.horizontal_size_value / 16);
       const sx = Math.floor(this.#macroblock_address % rows);
       const sy = Math.floor(this.#macroblock_address / rows);
 
