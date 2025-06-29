@@ -46,7 +46,7 @@ export default class H262Decoder {
 
   #decoding_frame: DecodedFrame | null = null;
 
-  #slice(reader: BitReader) {
+  #slice(slice_vertical_position: number, reader: BitReader) {
     if (this.#picture_coding_extension == null) { return; }
 
     /* TODO: implement and remove this condition! */
@@ -59,8 +59,6 @@ export default class H262Decoder {
       1 << (this.#picture_coding_extension.intra_dc_precision + 7),
     ];
 
-    // TODO: ???
-    let slice_vertical_position = 0; //(slice_start_code & 0x000000FF) - 1;
     if (slice_vertical_position >= (2800 - 1)) {
       slice_vertical_position += (reader.read(3) << 7)
     }
@@ -324,7 +322,7 @@ export default class H262Decoder {
           break;
         default: {
           if (StartCode.MinSliceStartCode <= startcode && startcode <= StartCode.MaxSliceStartCode) {
-            this.#slice(reader);
+            this.#slice(startcode, reader);
           }
           break;
         }
