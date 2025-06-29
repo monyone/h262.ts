@@ -14,19 +14,37 @@ export const DecodedFrame = {
   export(frame: DecodedFrame): Uint8Array {
     return Uint8Array.from(frame.yuv);
   },
-  ypos(x: number, y: number, { chroma_format, width }: DecodedFrame): number {
+  y_in_range(x: number, y: number, { chroma_format, width, height }: DecodedFrame): boolean {
+    switch (chroma_format) {
+      case ChromaFormat.YUV420: return (y * width + x) < width * height;
+      default: throw new UnsupportedError('Unsupported ChromaFormat');
+    }
+  },
+  y_pos(x: number, y: number, { chroma_format, width }: DecodedFrame): number {
     switch (chroma_format) {
       case ChromaFormat.YUV420: return (y * width + x);
       default: throw new UnsupportedError('Unsupported ChromaFormat');
     }
   },
-  upos(x: number, y: number, { chroma_format, height, width }: DecodedFrame): number {
+  u_in_range(x: number, y: number, { chroma_format, width, height }: DecodedFrame): boolean {
+    switch (chroma_format) {
+      case ChromaFormat.YUV420: return (y * width / 2 + x) < width * height / 4;
+      default: throw new UnsupportedError('Unsupported ChromaFormat');
+    }
+  },
+  u_pos(x: number, y: number, { chroma_format, width, height }: DecodedFrame): number {
     switch (chroma_format) {
       case ChromaFormat.YUV420: return (height * width) + (y * width / 2 + x);
       default: throw new UnsupportedError('Unsupported ChromaFormat');
     }
   },
-  vpos(x: number, y: number, { chroma_format, height, width }: DecodedFrame): number {
+  v_in_range(x: number, y: number, { chroma_format, width, height }: DecodedFrame): boolean {
+    switch (chroma_format) {
+      case ChromaFormat.YUV420: return (y * width / 2 + x) < width * height / 4;
+      default: throw new UnsupportedError('Unsupported ChromaFormat');
+    }
+  },
+  v_pos(x: number, y: number, { chroma_format, height, width }: DecodedFrame): number {
     switch (chroma_format) {
       case ChromaFormat.YUV420: return (height * width) + (height * width / 4) + (y * width / 2 + x);
       default: throw new UnsupportedError('Unsupported ChromaFormat');
@@ -153,12 +171,12 @@ export default class H262Decoder {
       for (let r = 0; r < BLOCK_ROW; r++) {
         for (let c = 0; c < BLOCK_COL; c++) {
           switch(i) {
-            case 0: frame.yuv[DecodedFrame.ypos(sx * 16 + c + 0, sy * 16 + r + 0, frame)] = decoded[r][c]; break;
-            case 1: frame.yuv[DecodedFrame.ypos(sx * 16 + c + 8, sy * 16 + r + 0, frame)] = decoded[r][c]; break;
-            case 2: frame.yuv[DecodedFrame.ypos(sx * 16 + c + 0, sy * 16 + r + 8, frame)] = decoded[r][c]; break;
-            case 3: frame.yuv[DecodedFrame.ypos(sx * 16 + c + 8, sy * 16 + r + 8, frame)] = decoded[r][c]; break;
-            case 4: frame.yuv[DecodedFrame.upos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; break;
-            case 5: frame.yuv[DecodedFrame.vpos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; break;
+            case 0: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 0, frame)] = decoded[r][c]; } break;
+            case 1: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 0, frame)] = decoded[r][c]; } break;
+            case 2: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 8, frame)] = decoded[r][c]; } break;
+            case 3: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 8, frame)] = decoded[r][c]; } break;
+            case 4: if (DecodedFrame.u_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.u_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; } break;
+            case 5: if (DecodedFrame.v_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.v_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; } break;
           }
         }
       }
