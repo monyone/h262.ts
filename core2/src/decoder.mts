@@ -4,39 +4,32 @@ import idct from "./idct.mts";
 import { CODED_BLOCK_PATTERN_VLC, DCT_COEFFICIENTS_ZERO_DC_VLC, DCT_COEFFICIENTS_ZERO_OTHER_VLC, DCT_DC_SIZE_CHROMINANCE_VLC, DCT_DC_SIZE_LUMINANCE_VLC, MACROBLOCK_ADDRESS_INCREMENT_VLC, MACROBLOCK_TYPE_VLC } from "./vlc.mts";
 import { alternateOrder, ExtensionStartCode, type MacroBlockParametersFlags, macroblockParams, PictureCodingExtension, PictureHeader, q_scale, ScalableMode, SequenceExtension, SequenceHeader, SequenceScalableExtension, skipUntilStartCode, StartCode, zigzagOrder } from "./types.mts";
 
+
+
 export type DecodedFrame = {
   width: number,
   height: number,
   chroma_format: (typeof ChromaFormat)[keyof typeof ChromaFormat],
-  y: Uint8ClampedArray,
-  u: Uint8ClampedArray,
-  v: Uint8ClampedArray,
+  yuv: Uint8ClampedArray,
 };
 export const DecodedFrame = {
-  export({ y, u, v }: DecodedFrame): Uint8ClampedArray {
-    const length = y.byteLength + u.byteLength + v.byteLength;
-    const concat = new Uint8ClampedArray(length);
-    concat.set(y, 0);
-    concat.set(u, y.byteLength);
-    concat.set(v, y.byteLength + v.byteLength);
-    return concat;
+  export(frame: DecodedFrame): Uint8Array {
+    return Uint8Array.from(frame.yuv);
   },
-
   ypos(x: number, y: number, { width }: DecodedFrame): number {
-    return y * width + x;
+    return (y * width + x);
   },
-  upos(x: number, y: number, { width }: DecodedFrame): number {
-    return y * width / 2 + x;
+  upos(x: number, y: number, { height, width }: DecodedFrame): number {
+    return (height * width) + (y * width / 2 + x);
   },
-  vpos(x: number, y: number, { width }: DecodedFrame): number {
-    return y * width / 2 + x;
+  vpos(x: number, y: number, { height, width }: DecodedFrame): number {
+    return (height * width) + (height * width / 4) + (y * width / 2 + x);
   }
 }
 
 export default class H262Decoder {
   #sequence_header: SequenceHeader | null = null;
   #sequence_extension: SequenceExtension | null = null;
-  #scalable_extension: SequenceScalableExtension | null = null;
   #picture_coding_extension: PictureCodingExtension | null = null;
   #picture_header: PictureHeader | null = null;
 
@@ -47,12 +40,8 @@ export default class H262Decoder {
   #decoding_frame: DecodedFrame | null = null;
 
   #slice(slice_vertical_position: number, reader: BitReader) {
-    if (this.#picture_coding_extension == null) { return; }
+    if (this.#picture_header == null || this.#picture_coding_extension == null) { return; }
 
-    /* TODO: implement and remove this condition! */
-    if (this.#picture_header == null || this.#picture_header.picture_coding_type !== PictureCodingType.I) {
-      return;
-    }
     this.#dct_dc_pred = [
       1 << (this.#picture_coding_extension.intra_dc_precision + 7),
       1 << (this.#picture_coding_extension.intra_dc_precision + 7),
@@ -61,10 +50,6 @@ export default class H262Decoder {
 
     if (slice_vertical_position >= (2800 - 1)) {
       slice_vertical_position += (reader.read(3) << 7)
-    }
-
-    if (this.#scalable_extension?.scalable_mode === ScalableMode.DATA_PARTITIONING) {
-      const priority_breakpoint = reader.read(7);
     }
 
     this.#quantizer_scale = reader.read(5);
@@ -105,7 +90,6 @@ export default class H262Decoder {
 
     const macroblock_type = MACROBLOCK_TYPE_VLC[this.#picture_header.picture_coding_type].get(reader);
     if (macroblock_type == null) { return null; }
-
     const {
       macroblock_quant,
       macroblock_motion_forward,
@@ -160,12 +144,12 @@ export default class H262Decoder {
       for (let r = 0; r < BLOCK_ROW; r++) {
         for (let c = 0; c < BLOCK_COL; c++) {
           switch(i) {
-            case 0: frame.y[DecodedFrame.ypos(sx * 16 + c + 0, sy * 16 + r + 0, frame)] = decoded[r][c]; break;
-            case 1: frame.y[DecodedFrame.ypos(sx * 16 + c + 8, sy * 16 + r + 0, frame)] = decoded[r][c]; break;
-            case 2: frame.y[DecodedFrame.ypos(sx * 16 + c + 0, sy * 16 + r + 8, frame)] = decoded[r][c]; break;
-            case 3: frame.y[DecodedFrame.ypos(sx * 16 + c + 8, sy * 16 + r + 8, frame)] = decoded[r][c]; break;
-            case 4: frame.u[DecodedFrame.upos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; break;
-            case 5: frame.v[DecodedFrame.vpos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; break;
+            case 0: frame.yuv[DecodedFrame.ypos(sx * 16 + c + 0, sy * 16 + r + 0, frame)] = decoded[r][c]; break;
+            case 1: frame.yuv[DecodedFrame.ypos(sx * 16 + c + 8, sy * 16 + r + 0, frame)] = decoded[r][c]; break;
+            case 2: frame.yuv[DecodedFrame.ypos(sx * 16 + c + 0, sy * 16 + r + 8, frame)] = decoded[r][c]; break;
+            case 3: frame.yuv[DecodedFrame.ypos(sx * 16 + c + 8, sy * 16 + r + 8, frame)] = decoded[r][c]; break;
+            case 4: frame.yuv[DecodedFrame.upos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; break;
+            case 5: frame.yuv[DecodedFrame.vpos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; break;
           }
         }
       }
@@ -274,18 +258,7 @@ export default class H262Decoder {
       switch(startcode) {
         case StartCode.SequenceHeaderCode:
           this.#sequence_header = SequenceHeader.from(reader);
-
-          if (firstIFrameArrived) { return DecodedFrame.export(this.#decoding_frame!); }
-
-          this.#decoding_frame = {
-            width: this.#sequence_header.horizontal_size_value,
-            height: this.#sequence_header.vertical_size_value,
-            chroma_format: ChromaFormat.YUV420,
-            y: new Uint8ClampedArray(this.#sequence_header.vertical_size_value * this.#sequence_header.horizontal_size_value),
-            u: new Uint8ClampedArray(this.#sequence_header.vertical_size_value * this.#sequence_header.horizontal_size_value / 4),
-            v: new Uint8ClampedArray(this.#sequence_header.vertical_size_value * this.#sequence_header.horizontal_size_value / 4),
-          }
-
+          this.#decoding_frame = null;
           break;
         case StartCode.UserDataStartCode:
           // Ignore
@@ -294,10 +267,13 @@ export default class H262Decoder {
           switch (reader.read(4)) {
             case ExtensionStartCode.SequenceExtension: {
               this.#sequence_extension = SequenceExtension.from(reader);
-              break;
-            }
-            case ExtensionStartCode.SequenceScalableExtension: {
-              this.#scalable_extension = SequenceScalableExtension.from(reader);
+              if (this.#sequence_header == null) { break; }
+              this.#decoding_frame = {
+                width: this.#sequence_header.horizontal_size_value,
+                height: this.#sequence_header.vertical_size_value,
+                chroma_format: this.#sequence_extension.chroma_format,
+                yuv: new Uint8ClampedArray(this.#sequence_header.vertical_size_value * this.#sequence_header.horizontal_size_value * 3 / 2),
+              }
               break;
             }
             case ExtensionStartCode.PictureCodingExtension: {
@@ -313,15 +289,13 @@ export default class H262Decoder {
           break;
         case StartCode.PictureStartCode:
           this.#picture_header = PictureHeader.from(reader);
-          if (this.#picture_header.picture_coding_type === PictureCodingType.I) {
-            firstIFrameArrived = true;
-          }
           break;
         case StartCode.SequenceEndCode:
           // ignore
           break;
         default: {
-          if (StartCode.MinSliceStartCode <= startcode && startcode <= StartCode.MaxSliceStartCode) {
+          const is_slice = StartCode.MinSliceStartCode <= startcode && startcode <= StartCode.MaxSliceStartCode;
+          if (this.#decoding_frame != null && is_slice) {
             this.#slice(startcode, reader);
           }
           break;

@@ -25,7 +25,6 @@ export const ExtensionStartCode = {
   PictureTemporalScalableExtension: 0b1010
 } as const;
 
-
 export type MacroBlockParametersFlags = {
   macroblock_quant: boolean;
   macroblock_motion_forward: boolean;
