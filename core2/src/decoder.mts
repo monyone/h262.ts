@@ -2,7 +2,7 @@ import BitReader, { bool } from "./reader.mts";
 import { BLOCK_COL, BLOCK_DCT_COEFFS, BLOCK_ROW, ChromaFormat, PictureCodingType, xy } from "./constants.mts";
 import idct from "./idct.mts";
 import { CODED_BLOCK_PATTERN_VLC, DCT_COEFFICIENTS_ZERO_DC_VLC, DCT_COEFFICIENTS_ZERO_OTHER_VLC, DCT_DC_SIZE_CHROMINANCE_VLC, DCT_DC_SIZE_LUMINANCE_VLC, MACROBLOCK_ADDRESS_INCREMENT_VLC, MACROBLOCK_TYPE_VLC } from "./vlc.mts";
-import { alternateOrder, ExtensionStartCode, type MacroBlockParametersFlags, macroblockParams, PictureCodingExtension, PictureHeader, q_scale, SequenceExtension, SequenceHeader, SequenceScalableExtension, skipUntilStartCode, StartCode, zigzagOrder } from "./types.mts";
+import { alternateOrder, ExtensionStartCode, type MacroBlockParametersFlags, macroblockParams, PictureCodingExtension, PictureHeader, q_scale, ScalableMode, SequenceExtension, SequenceHeader, SequenceScalableExtension, skipUntilStartCode, StartCode, zigzagOrder } from "./types.mts";
 
 export type DecodedFrame = {
   width: number,
@@ -65,7 +65,7 @@ export default class H262Decoder {
       slice_vertical_position += (reader.read(3) << 7)
     }
 
-    if (this.#scalable_extension?.scalable_mode === 0) {
+    if (this.#scalable_extension?.scalable_mode === ScalableMode.DATA_PARTITIONING) {
       const priority_breakpoint = reader.read(7);
     }
 
