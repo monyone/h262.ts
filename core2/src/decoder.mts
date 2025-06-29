@@ -110,7 +110,7 @@ export default class H262Decoder {
     // spatial_temporal_weight_code (2bit)
     // frame_motion_type, field_motion_type
 
-    let dct_type: boolean | null = null;
+    let dct_type: boolean | null = null; // TODO: Field or Frame DCT
     if (this.#picture_coding_extension.picture_structure === 0b11 && this.#picture_coding_extension.frame_pred_frame_dct === false && (macroblock_intra || macroblock_pattern)) {
       dct_type = bool(reader.read(1));
     }
