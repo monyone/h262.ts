@@ -1,10 +1,8 @@
 import BitReader, { bool } from "./reader.mts";
-import { BLOCK_COL, BLOCK_DCT_COEFFS, BLOCK_ROW, ChromaFormat, PictureCodingType, xy } from "./constants.mts";
+import { BLOCK_COL, BLOCK_DCT_COEFFS, BLOCK_ROW, ChromaFormat, PictureCodingType, UnsupportedError, xy } from "./constants.mts";
 import idct from "./idct.mts";
 import { CODED_BLOCK_PATTERN_VLC, DCT_COEFFICIENTS_ZERO_DC_VLC, DCT_COEFFICIENTS_ZERO_OTHER_VLC, DCT_DC_SIZE_CHROMINANCE_VLC, DCT_DC_SIZE_LUMINANCE_VLC, MACROBLOCK_ADDRESS_INCREMENT_VLC, MACROBLOCK_TYPE_VLC } from "./vlc.mts";
 import { alternateOrder, ExtensionStartCode, type MacroBlockParametersFlags, macroblockParams, PictureCodingExtension, PictureHeader, q_scale, ScalableMode, SequenceExtension, SequenceHeader, SequenceScalableExtension, skipUntilStartCode, StartCode, zigzagOrder } from "./types.mts";
-
-
 
 export type DecodedFrame = {
   width: number,
@@ -16,14 +14,23 @@ export const DecodedFrame = {
   export(frame: DecodedFrame): Uint8Array {
     return Uint8Array.from(frame.yuv);
   },
-  ypos(x: number, y: number, { width }: DecodedFrame): number {
-    return (y * width + x);
+  ypos(x: number, y: number, { chroma_format, width }: DecodedFrame): number {
+    switch (chroma_format) {
+      case ChromaFormat.YUV420: return (y * width + x);
+      default: throw new UnsupportedError('Unsupported ChromaFormat');
+    }
   },
-  upos(x: number, y: number, { height, width }: DecodedFrame): number {
-    return (height * width) + (y * width / 2 + x);
+  upos(x: number, y: number, { chroma_format, height, width }: DecodedFrame): number {
+    switch (chroma_format) {
+      case ChromaFormat.YUV420: return (height * width) + (y * width / 2 + x);
+      default: throw new UnsupportedError('Unsupported ChromaFormat');
+    }
   },
-  vpos(x: number, y: number, { height, width }: DecodedFrame): number {
-    return (height * width) + (height * width / 4) + (y * width / 2 + x);
+  vpos(x: number, y: number, { chroma_format, height, width }: DecodedFrame): number {
+    switch (chroma_format) {
+      case ChromaFormat.YUV420: return (height * width) + (height * width / 4) + (y * width / 2 + x);
+      default: throw new UnsupportedError('Unsupported ChromaFormat');
+    }
   }
 }
 
@@ -51,6 +58,8 @@ export default class H262Decoder {
     if (slice_vertical_position >= (2800 - 1)) {
       slice_vertical_position += (reader.read(3) << 7)
     }
+
+    // scalable_mode: DATA_PARTITIONING => priority_breakpoint (7bit)
 
     this.#quantizer_scale = reader.read(5);
     if (bool(reader.peek(1))) {
@@ -249,8 +258,6 @@ export default class H262Decoder {
   public decode(payload: Uint8Array) {
     const reader = new BitReader(payload);
 
-    let firstIFrameArrived = false;
-
     while (!reader.empty()) {
       if (!skipUntilStartCode(reader)) { break; }
 
@@ -274,6 +281,7 @@ export default class H262Decoder {
                 chroma_format: this.#sequence_extension.chroma_format,
                 yuv: new Uint8ClampedArray(this.#sequence_header.vertical_size_value * this.#sequence_header.horizontal_size_value * 3 / 2),
               }
+              this.#macroblock_address = 0;
               break;
             }
             case ExtensionStartCode.PictureCodingExtension: {
