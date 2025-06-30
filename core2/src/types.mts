@@ -527,10 +527,7 @@ export const SequenceScalableExtension = {
 };
 
 export type PictureCodingExtension = {
-  f_code_0_0: number,
-  f_code_0_1: number,
-  f_code_1_0: number,
-  f_code_1_1: number,
+  f_code: [[number, number], [number, number]],
   intra_dc_precision: number,
   picture_structure: (typeof PictureStructure)[keyof typeof PictureStructure],
   top_field_first: boolean,
@@ -554,10 +551,7 @@ export type PictureCodingExtension = {
 });
 export const PictureCodingExtension = {
   from(stream: BitReader): PictureCodingExtension {
-    const f_code_0_0 = stream.read(4);
-    const f_code_0_1 = stream.read(4);
-    const f_code_1_0 = stream.read(4);
-    const f_code_1_1 = stream.read(4);
+    const f_code = [[stream.read(4), stream.read(4)], [stream.read(4), stream.read(4)]] satisfies [[number, number], [number, number]];
     const intra_dc_precision = stream.read(2);
     const picture_structure = supportedPictureStructure(stream.read(2));
     const top_field_first = bool(stream.read(1));
@@ -572,10 +566,7 @@ export const PictureCodingExtension = {
     const composite_display_flag = bool(stream.read(1));
     if (!composite_display_flag) {
       return {
-        f_code_0_0,
-        f_code_0_1,
-        f_code_1_0,
-        f_code_1_1,
+        f_code,
         intra_dc_precision,
         picture_structure,
         top_field_first,
@@ -597,10 +588,7 @@ export const PictureCodingExtension = {
     const burst_amplitude = stream.read(7);
     const sub_carrier_phase = stream.read(8);
     return {
-      f_code_0_0,
-      f_code_0_1,
-      f_code_1_0,
-      f_code_1_1,
+      f_code,
       intra_dc_precision,
       picture_structure,
       top_field_first,
