@@ -34,7 +34,7 @@ export const macroblock_address_increment_table = [
   [0b00000011010, 11],
   [0b00000011001, 11],
   [0b00000011000, 11],
-  [0b00000010000, 11],
+  [0b00000001000, 11],
 ] as const;
 
 export const macroblock_type_tables = [
@@ -362,6 +362,16 @@ macroblock_type_tables.forEach((table, type) => {
 export const CODED_BLOCK_PATTERN_VLC = new BinaryTrie<number>();
 coded_block_pattern_table.forEach(([code, length, value]) => {
   CODED_BLOCK_PATTERN_VLC.append(value, code, length);
+});
+
+export const MOTION_CODE_VLC = new BinaryTrie<number>();
+motion_code_table.forEach(([code, length, value]) => {
+  MOTION_CODE_VLC.append(value, code, length);
+});
+
+export const DMVECTOR_VLC = new BinaryTrie<number>();
+dmvector_table.forEach(([code, length, value]) => {
+  DMVECTOR_VLC.append(value, code, length);
 });
 
 export const DCT_DC_SIZE_LUMINANCE_VLC = new BinaryTrie<number>();
