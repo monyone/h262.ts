@@ -1,7 +1,7 @@
 import BitReader, { bool } from "./reader.mts";
-import { BLOCK_COL, BLOCK_DCT_COEFFS, BLOCK_ROW, ChromaFormat, PictureCodingType, UnsupportedError, xy } from "./constants.mts";
+import { BLOCK_COL, BLOCK_DCT_COEFFS, BLOCK_ROW, ChromaFormat, PictureCodingType, PictureStructure, UnsupportedError, xy } from "./constants.mts";
 import idct from "./idct.mts";
-import { CODED_BLOCK_PATTERN_VLC, DCT_COEFFICIENTS_ZERO_DC_VLC, DCT_COEFFICIENTS_ZERO_OTHER_VLC, DCT_DC_SIZE_CHROMINANCE_VLC, DCT_DC_SIZE_LUMINANCE_VLC, MACROBLOCK_ADDRESS_INCREMENT_VLC, MACROBLOCK_TYPE_VLC } from "./vlc.mts";
+import { CODED_BLOCK_PATTERN_VLC, DCT_COEFFICIENTS_ZERO_DC_VLC, DCT_COEFFICIENTS_ZERO_OTHER_VLC, DCT_DC_SIZE_CHROMINANCE_VLC, DCT_DC_SIZE_LUMINANCE_VLC, MACROBLOCK_ADDRESS_INCREMENT_VLC, MACROBLOCK_TYPE_VLC, MOTION_CODE_VLC } from "./vlc.mts";
 import { alternateOrder, ExtensionStartCode, type MacroBlockParametersFlags, macroblockParams, PictureCodingExtension, PictureHeader, q_scale, ScalableMode, SequenceExtension, SequenceHeader, SequenceScalableExtension, skipUntilStartCode, StartCode, zigzagOrder } from "./types.mts";
 
 export type DecodedFrame = {
@@ -124,26 +124,46 @@ export default class H262Decoder {
       macroblock_intra,
       macroblock_pattern,
     } = macroblockParams[this.#picture_header.picture_coding_type][macroblock_type];
-    // TODO: Implement B frame and remove this!
-    // spatial_temporal_weight_code (2bit)
-    // frame_motion_type, field_motion_type
+    // TODO: spatial_temporal_weight_code (2bit)
+    const motion_type = (macroblock_motion_forward || macroblock_motion_backward) && !(this.#picture_coding_extension.picture_structure === PictureStructure.FramePicture && this.#picture_coding_extension.frame_pred_frame_dct === true) ? reader.read(2) : 2;
 
     let dct_type: boolean | null = null; // TODO: Field or Frame DCT
-    if (this.#picture_coding_extension.picture_structure === 0b11 && this.#picture_coding_extension.frame_pred_frame_dct === false && (macroblock_intra || macroblock_pattern)) {
+    if (this.#picture_coding_extension.picture_structure === PictureStructure.FramePicture && this.#picture_coding_extension.frame_pred_frame_dct === false && (macroblock_intra || macroblock_pattern)) {
       dct_type = bool(reader.read(1));
     }
 
     if (macroblock_quant) {
       this.#quantizer_scale = reader.read(5);
     }
+    let motion_vector_0 = null;
     if (macroblock_motion_forward || (macroblock_intra && this.#picture_coding_extension.concealment_motion_vectors)) {
       // mb
+      // motion_vector(0, 0)
+      const motion_code_0 = MOTION_CODE_VLC.get(reader);
+      const has_motion_residual_0 = this.#picture_coding_extension.f_code[0][0] !== 1 && motion_code_0 !== 0;
+      const motion_residual_0 = has_motion_residual_0 ? reader.read(this.#picture_coding_extension.f_code[0][0] - 1) : 0;
+
+      const motion_code_1 = MOTION_CODE_VLC.get(reader);
+      const has_motion_residual_1 = this.#picture_coding_extension.f_code[0][1] !== 1 && motion_code_1 !== 0;
+      const motion_residual_1 = has_motion_residual_1 ? reader.read(this.#picture_coding_extension.f_code[0][1] - 1) : 0;
+
+      console.error('pre', motion_code_0, motion_residual_0, motion_code_1, motion_residual_1);
     }
     if (macroblock_motion_backward) {
       // mb
+      // motion_vector(0, 1)
+      const motion_code_0 = MOTION_CODE_VLC.get(reader);
+      const has_motion_residual_0 = this.#picture_coding_extension.f_code[1][0] !== 1 && motion_code_0 !== 0;
+      const motion_residual_0 = has_motion_residual_0 ? reader.read(this.#picture_coding_extension.f_code[1][0]) : 0;
+
+      const motion_code_1 = MOTION_CODE_VLC.get(reader);
+      const has_motion_residual_1 = this.#picture_coding_extension.f_code[1][1] !== 1 && motion_code_1 !== 0;
+      const motion_residual_1 = has_motion_residual_1 ? reader.read(this.#picture_coding_extension.f_code[1][1]) : 0;
+
+      console.error(motion_code_0, motion_code_1)
     }
     if (macroblock_intra && this.#picture_coding_extension.concealment_motion_vectors) {
-      reader.skip(1); // TODO
+      reader.skip(1);
     }
 
     let coded_block_pattern: number | null = null;
@@ -160,6 +180,8 @@ export default class H262Decoder {
     if (!macroblock_intra && coded_block_pattern == null) { return null; }
 
     for (let i = 0; i < 6/* this.#block_count */; i++) {
+      if (coded_block_pattern != null && (coded_block_pattern & (1 << i)) === 0) { continue; }
+
       const decoded = this.#block(i < 4, Math.max(0, i - 3), macroblockParams[this.#picture_header.picture_coding_type][macroblock_type], reader);
       if (decoded == null) { return null; }
 
