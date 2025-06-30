@@ -146,8 +146,6 @@ export default class H262Decoder {
       const motion_code_1 = MOTION_CODE_VLC.get(reader);
       const has_motion_residual_1 = this.#picture_coding_extension.f_code[0][1] !== 1 && motion_code_1 !== 0;
       const motion_residual_1 = has_motion_residual_1 ? reader.read(this.#picture_coding_extension.f_code[0][1] - 1) : 0;
-
-      console.error('pre', motion_code_0, motion_residual_0, motion_code_1, motion_residual_1);
     }
     if (macroblock_motion_backward) {
       // mb
@@ -159,8 +157,6 @@ export default class H262Decoder {
       const motion_code_1 = MOTION_CODE_VLC.get(reader);
       const has_motion_residual_1 = this.#picture_coding_extension.f_code[1][1] !== 1 && motion_code_1 !== 0;
       const motion_residual_1 = has_motion_residual_1 ? reader.read(this.#picture_coding_extension.f_code[1][1]) : 0;
-
-      console.error(motion_code_0, motion_code_1)
     }
     if (macroblock_intra && this.#picture_coding_extension.concealment_motion_vectors) {
       reader.skip(1);
@@ -295,7 +291,7 @@ export default class H262Decoder {
     return image;
   }
 
-  public decode(payload: Uint8Array) {
+  public *decode(payload: Uint8Array): Iterable<Uint8Array> {
     const reader = new BitReader(payload);
 
     while (!reader.empty()) {
@@ -305,7 +301,6 @@ export default class H262Decoder {
       switch(startcode) {
         case StartCode.SequenceHeaderCode:
           this.#sequence_header = SequenceHeader.from(reader);
-          this.#decoding_frame = null;
           break;
         case StartCode.UserDataStartCode:
           // Ignore
@@ -336,6 +331,9 @@ export default class H262Decoder {
           // ignore
           break;
         case StartCode.PictureStartCode:
+          if (this.#decoding_frame) {
+            yield DecodedFrame.export(this.#decoding_frame!);
+          }
           this.#picture_header = PictureHeader.from(reader);
           break;
         case StartCode.SequenceEndCode:
@@ -351,8 +349,6 @@ export default class H262Decoder {
       }
     }
 
-    console.error(this.#decoding_frame);
-
-    return DecodedFrame.export(this.#decoding_frame!);
+    yield DecodedFrame.export(this.#decoding_frame!);
   }
 }
