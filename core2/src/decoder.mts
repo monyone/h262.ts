@@ -14,25 +14,11 @@ export const DecodedFrame = {
   export(frame: DecodedFrame): Uint8Array {
     return Uint8Array.from(frame.yuv);
   },
-  y_get(x: number, y: number, frame: DecodedFrame) {
-    const val1 = frame.yuv[DecodedFrame.pos(YUVFormatType.Y, Math.ceil(x),  Math.ceil(y),  frame)];
-    const val2 = frame.yuv[DecodedFrame.pos(YUVFormatType.Y, Math.ceil(x),  Math.floor(y), frame)];
-    const val3 = frame.yuv[DecodedFrame.pos(YUVFormatType.Y, Math.floor(x), Math.ceil(y),  frame)];
-    const val4 = frame.yuv[DecodedFrame.pos(YUVFormatType.Y, Math.floor(x), Math.floor(y), frame)];
-    return Math.round((val1 + val2 + val3 + val4) / 4);
-  },
-  u_get(x: number, y: number, frame: DecodedFrame) {
-    const val1 = frame.yuv[DecodedFrame.pos(YUVFormatType.U, Math.ceil(x),  Math.ceil(y),  frame)];
-    const val2 = frame.yuv[DecodedFrame.pos(YUVFormatType.U, Math.ceil(x),  Math.floor(y), frame)];
-    const val3 = frame.yuv[DecodedFrame.pos(YUVFormatType.U, Math.floor(x), Math.ceil(y),  frame)];
-    const val4 = frame.yuv[DecodedFrame.pos(YUVFormatType.U, Math.floor(x), Math.floor(y), frame)];
-    return Math.round((val1 + val2 + val3 + val4) / 4);
-  },
-  v_get(x: number, y: number, frame: DecodedFrame) {
-    const val1 = frame.yuv[DecodedFrame.pos(YUVFormatType.V, Math.ceil(x),  Math.ceil(y),  frame)];
-    const val2 = frame.yuv[DecodedFrame.pos(YUVFormatType.V, Math.ceil(x),  Math.floor(y), frame)];
-    const val3 = frame.yuv[DecodedFrame.pos(YUVFormatType.V, Math.floor(x), Math.ceil(y),  frame)];
-    const val4 = frame.yuv[DecodedFrame.pos(YUVFormatType.V, Math.floor(x), Math.floor(y), frame)];
+  get(type: (typeof YUVFormatType)[keyof typeof YUVFormatType], x: number, y: number, frame: DecodedFrame) {
+    const val1 = frame.yuv[DecodedFrame.pos(type, Math.ceil(x),  Math.ceil(y),  frame)];
+    const val2 = frame.yuv[DecodedFrame.pos(type, Math.ceil(x),  Math.floor(y), frame)];
+    const val3 = frame.yuv[DecodedFrame.pos(type, Math.floor(x), Math.ceil(y),  frame)];
+    const val4 = frame.yuv[DecodedFrame.pos(type, Math.floor(x), Math.floor(y), frame)];
     return Math.round((val1 + val2 + val3 + val4) / 4);
   },
   in_range(type: (typeof YUVFormatType)[keyof typeof YUVFormatType], x: number, y: number, { chroma_format, width, height }: DecodedFrame): boolean {
@@ -259,12 +245,12 @@ export default class H262Decoder {
         for (let r = 0; r < BLOCK_ROW; r++) {
           for (let c = 0; c < BLOCK_COL; c++) {
             switch(i) {
-              case 0: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
-              case 1: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 8 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
-              case 2: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 8, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 8 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
-              case 3: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 8, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 8 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 8 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
-              case 4: if (DecodedFrame.in_range(YUVFormatType.U, sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.U, sx *  8 + c + 0, sy *  8 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.pos(YUVFormatType.U, sx *  8 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 4), sy *  8 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 4), prev)]; } break;
-              case 5: if (DecodedFrame.in_range(YUVFormatType.V, sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.V, sx *  8 + c + 0, sy *  8 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.pos(YUVFormatType.V, sx *  8 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 4), sy *  8 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 4), prev)]; } break;
+              case 0: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + DecodedFrame.get(YUVFormatType.Y, sx * 16 + c + 0 + this.#forward_motion_vector[0] / 2, sy * 16 + r + 0 + this.#forward_motion_vector[1] / 2, prev); } break;
+              case 1: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + DecodedFrame.get(YUVFormatType.Y, sx * 16 + c + 8 + this.#forward_motion_vector[0] / 2, sy * 16 + r + 0 + this.#forward_motion_vector[1] / 2, prev); } break;
+              case 2: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 8, frame)] = (is_coded ? decoded[r][c] : 0) + DecodedFrame.get(YUVFormatType.Y, sx * 16 + c + 0 + this.#forward_motion_vector[0] / 2, sy * 16 + r + 8 + this.#forward_motion_vector[1] / 2, prev); } break;
+              case 3: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 8, frame)] = (is_coded ? decoded[r][c] : 0) + DecodedFrame.get(YUVFormatType.Y, sx * 16 + c + 8 + this.#forward_motion_vector[0] / 2, sy * 16 + r + 8 + this.#forward_motion_vector[1] / 2, prev); } break;
+              case 4: if (DecodedFrame.in_range(YUVFormatType.U, sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.U, sx *  8 + c + 0, sy *  8 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + DecodedFrame.get(YUVFormatType.U, sx *  8 + c + 0 + Math.round(this.#forward_motion_vector[0] / 2) / 2, sy *  8 + r + 0 + Math.round(this.#forward_motion_vector[1] / 2) / 2, prev); } break;
+              case 5: if (DecodedFrame.in_range(YUVFormatType.V, sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.V, sx *  8 + c + 0, sy *  8 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + DecodedFrame.get(YUVFormatType.V, sx *  8 + c + 0 + Math.round(this.#forward_motion_vector[0] / 2) / 2, sy *  8 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 2) / 2, prev); } break;
             }
           }
         }
