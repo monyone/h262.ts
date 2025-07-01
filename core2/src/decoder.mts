@@ -1,5 +1,5 @@
 import BitReader, { bool } from "./reader.mts";
-import { BLOCK_COL, BLOCK_DCT_COEFFS, BLOCK_ROW, ChromaFormat, PictureCodingType, PictureStructure, UnsupportedError, xy } from "./constants.mts";
+import { BLOCK_COL, BLOCK_DCT_COEFFS, BLOCK_ROW, ChromaFormat, PictureCodingType, PictureStructure, UnsupportedError, xy, YUVFormatType } from "./constants.mts";
 import idct from "./idct.mts";
 import { CODED_BLOCK_PATTERN_VLC, DCT_COEFFICIENTS_ZERO_DC_VLC, DCT_COEFFICIENTS_ZERO_OTHER_VLC, DCT_DC_SIZE_CHROMINANCE_VLC, DCT_DC_SIZE_LUMINANCE_VLC, MACROBLOCK_ADDRESS_INCREMENT_VLC, MACROBLOCK_TYPE_VLC, MOTION_CODE_VLC } from "./vlc.mts";
 import { alternateOrder, ExtensionStartCode, type MacroBlockParametersFlags, macroblockParams, PictureCodingExtension, PictureHeader, q_scale, ScalableMode, SequenceExtension, SequenceHeader, SequenceScalableExtension, skipUntilStartCode, StartCode, zigzagOrder } from "./types.mts";
@@ -15,59 +15,45 @@ export const DecodedFrame = {
     return Uint8Array.from(frame.yuv);
   },
   y_get(x: number, y: number, frame: DecodedFrame) {
-    const val1 = frame.yuv[DecodedFrame.y_pos(Math.ceil(x),  Math.ceil(y),  frame)];
-    const val2 = frame.yuv[DecodedFrame.y_pos(Math.ceil(x),  Math.floor(y), frame)];
-    const val3 = frame.yuv[DecodedFrame.y_pos(Math.floor(x), Math.ceil(y),  frame)];
-    const val4 = frame.yuv[DecodedFrame.y_pos(Math.floor(x), Math.floor(y), frame)];
+    const val1 = frame.yuv[DecodedFrame.pos(YUVFormatType.Y, Math.ceil(x),  Math.ceil(y),  frame)];
+    const val2 = frame.yuv[DecodedFrame.pos(YUVFormatType.Y, Math.ceil(x),  Math.floor(y), frame)];
+    const val3 = frame.yuv[DecodedFrame.pos(YUVFormatType.Y, Math.floor(x), Math.ceil(y),  frame)];
+    const val4 = frame.yuv[DecodedFrame.pos(YUVFormatType.Y, Math.floor(x), Math.floor(y), frame)];
     return Math.round((val1 + val2 + val3 + val4) / 4);
   },
   u_get(x: number, y: number, frame: DecodedFrame) {
-    const val1 = frame.yuv[DecodedFrame.u_pos(Math.ceil(x),  Math.ceil(y),  frame)];
-    const val2 = frame.yuv[DecodedFrame.u_pos(Math.ceil(x),  Math.floor(y), frame)];
-    const val3 = frame.yuv[DecodedFrame.u_pos(Math.floor(x), Math.ceil(y),  frame)];
-    const val4 = frame.yuv[DecodedFrame.u_pos(Math.floor(x), Math.floor(y), frame)];
+    const val1 = frame.yuv[DecodedFrame.pos(YUVFormatType.U, Math.ceil(x),  Math.ceil(y),  frame)];
+    const val2 = frame.yuv[DecodedFrame.pos(YUVFormatType.U, Math.ceil(x),  Math.floor(y), frame)];
+    const val3 = frame.yuv[DecodedFrame.pos(YUVFormatType.U, Math.floor(x), Math.ceil(y),  frame)];
+    const val4 = frame.yuv[DecodedFrame.pos(YUVFormatType.U, Math.floor(x), Math.floor(y), frame)];
     return Math.round((val1 + val2 + val3 + val4) / 4);
   },
   v_get(x: number, y: number, frame: DecodedFrame) {
-    const val1 = frame.yuv[DecodedFrame.v_pos(Math.ceil(x),  Math.ceil(y),  frame)];
-    const val2 = frame.yuv[DecodedFrame.v_pos(Math.ceil(x),  Math.floor(y), frame)];
-    const val3 = frame.yuv[DecodedFrame.v_pos(Math.floor(x), Math.ceil(y),  frame)];
-    const val4 = frame.yuv[DecodedFrame.v_pos(Math.floor(x), Math.floor(y), frame)];
+    const val1 = frame.yuv[DecodedFrame.pos(YUVFormatType.V, Math.ceil(x),  Math.ceil(y),  frame)];
+    const val2 = frame.yuv[DecodedFrame.pos(YUVFormatType.V, Math.ceil(x),  Math.floor(y), frame)];
+    const val3 = frame.yuv[DecodedFrame.pos(YUVFormatType.V, Math.floor(x), Math.ceil(y),  frame)];
+    const val4 = frame.yuv[DecodedFrame.pos(YUVFormatType.V, Math.floor(x), Math.floor(y), frame)];
     return Math.round((val1 + val2 + val3 + val4) / 4);
   },
-  y_in_range(x: number, y: number, { chroma_format, width, height }: DecodedFrame): boolean {
+  in_range(type: (typeof YUVFormatType)[keyof typeof YUVFormatType], x: number, y: number, { chroma_format, width, height }: DecodedFrame): boolean {
     switch (chroma_format) {
-      case ChromaFormat.YUV420: return 0 <= y && y < height && 0 <= x && x < width;
+      case ChromaFormat.YUV420:
+        switch (type) {
+          case YUVFormatType.Y: return 0 <= y && y < height && 0 <= x && x < width;
+          case YUVFormatType.U: return 0 <= y && y < Math.floor(height / 2) && 0 <= x && x < Math.floor(width / 2);
+          case YUVFormatType.V: return 0 <= y && y < Math.floor(height / 2) && 0 <= x && x < Math.floor(width / 2);
+        }
       default: throw new UnsupportedError('Unsupported ChromaFormat');
     }
   },
-  y_pos(x: number, y: number, { chroma_format, width }: DecodedFrame): number {
+  pos(type: (typeof YUVFormatType)[keyof typeof YUVFormatType], x: number, y: number, { chroma_format, width, height }: DecodedFrame) {
     switch (chroma_format) {
-      case ChromaFormat.YUV420: return (y * width + x);
-      default: throw new UnsupportedError('Unsupported ChromaFormat');
-    }
-  },
-  u_in_range(x: number, y: number, { chroma_format, width, height }: DecodedFrame): boolean {
-    switch (chroma_format) {
-      case ChromaFormat.YUV420: return 0 <= y && y < height / 2 && 0 <= x && x < width / 2;
-      default: throw new UnsupportedError('Unsupported ChromaFormat');
-    }
-  },
-  u_pos(x: number, y: number, { chroma_format, width, height }: DecodedFrame): number {
-    switch (chroma_format) {
-      case ChromaFormat.YUV420: return (height * width) + (y * width / 2 + x);
-      default: throw new UnsupportedError('Unsupported ChromaFormat');
-    }
-  },
-  v_in_range(x: number, y: number, { chroma_format, width, height }: DecodedFrame): boolean {
-    switch (chroma_format) {
-      case ChromaFormat.YUV420: return 0 <= y && y < height / 2 && 0 <= x && x < width / 2;
-      default: throw new UnsupportedError('Unsupported ChromaFormat');
-    }
-  },
-  v_pos(x: number, y: number, { chroma_format, height, width }: DecodedFrame): number {
-    switch (chroma_format) {
-      case ChromaFormat.YUV420: return (height * width) + (height * width / 4) + (y * width / 2 + x);
+      case ChromaFormat.YUV420:
+        switch (type) {
+          case YUVFormatType.Y: return (y * width + x);
+          case YUVFormatType.U: return (height * width) + (y * width / 2 + x);
+          case YUVFormatType.V: return (height * width) + (height * width / 4) + (y * width / 2 + x);
+        }
       default: throw new UnsupportedError('Unsupported ChromaFormat');
     }
   }
@@ -260,12 +246,12 @@ export default class H262Decoder {
         for (let r = 0; r < BLOCK_ROW; r++) {
           for (let c = 0; c < BLOCK_COL; c++) {
             switch(i) {
-              case 0: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 0, frame)] = decoded[r][c]; } break;
-              case 1: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 0, frame)] = decoded[r][c]; } break;
-              case 2: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 8, frame)] = decoded[r][c]; } break;
-              case 3: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 8, frame)] = decoded[r][c]; } break;
-              case 4: if (DecodedFrame.u_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.u_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; } break;
-              case 5: if (DecodedFrame.v_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.v_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; } break;
+              case 0: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 0, frame)] = decoded[r][c]; } break;
+              case 1: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 0, frame)] = decoded[r][c]; } break;
+              case 2: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 8, frame)] = decoded[r][c]; } break;
+              case 3: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 8, frame)] = decoded[r][c]; } break;
+              case 4: if (DecodedFrame.in_range(YUVFormatType.U, sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.U, sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; } break;
+              case 5: if (DecodedFrame.in_range(YUVFormatType.V, sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.V, sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; } break;
             }
           }
         }
@@ -273,12 +259,12 @@ export default class H262Decoder {
         for (let r = 0; r < BLOCK_ROW; r++) {
           for (let c = 0; c < BLOCK_COL; c++) {
             switch(i) {
-              case 0: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.y_pos(sx * 16 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
-              case 1: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.y_pos(sx * 16 + c + 8 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
-              case 2: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 8, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.y_pos(sx * 16 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 8 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
-              case 3: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 8, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.y_pos(sx * 16 + c + 8 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 8 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
-              case 4: if (DecodedFrame.u_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.u_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.u_pos(sx *  8 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 4), sy *  8 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 4), prev)]; } break;
-              case 5: if (DecodedFrame.v_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.v_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.v_pos(sx *  8 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 4), sy *  8 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 4), prev)]; } break;
+              case 0: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
+              case 1: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 8 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
+              case 2: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 0, sy * 16 + r + 8, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 8 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
+              case 3: if (DecodedFrame.in_range(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 8, sy * 16 + r + 8, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.pos(YUVFormatType.Y, sx * 16 + c + 8 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 8 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
+              case 4: if (DecodedFrame.in_range(YUVFormatType.U, sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.U, sx *  8 + c + 0, sy *  8 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.pos(YUVFormatType.U, sx *  8 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 4), sy *  8 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 4), prev)]; } break;
+              case 5: if (DecodedFrame.in_range(YUVFormatType.V, sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.pos(YUVFormatType.V, sx *  8 + c + 0, sy *  8 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.pos(YUVFormatType.V, sx *  8 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 4), sy *  8 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 4), prev)]; } break;
             }
           }
         }
