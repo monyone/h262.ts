@@ -242,13 +242,12 @@ export default class H262Decoder {
         coded_block_pattern = (coded_block_pattern * (2 ** 6)) + reader.read(6);
       }
     }
-    if (!macroblock_intra && coded_block_pattern == null) { return null; }
 
     for (let i = 0; i < 6/* this.#block_count */; i++) {
-      if (coded_block_pattern != null && (coded_block_pattern & (1 << (5 - i))) === 0) { continue; }
+      const is_coded = (macroblock_intra && coded_block_pattern == null) || (coded_block_pattern != null && (coded_block_pattern & (1 << (5 - i))) !== 0);
 
-      const decoded = this.#block(i < 4, Math.max(0, i - 3), macroblockParams[this.#picture_header.picture_coding_type][macroblock_type], reader);
-      if (decoded == null) { console.error(i, decoded); return null; }
+      const decoded = is_coded ? this.#block(i < 4, Math.max(0, i - 3), macroblockParams[this.#picture_header.picture_coding_type][macroblock_type], reader) : [];
+      if (decoded == null) { return null; }
 
       const rows = Math.ceil(this.#sequence_header.horizontal_size_value / 16);
       const sx = Math.floor(this.#macroblock_address % rows);
@@ -257,6 +256,7 @@ export default class H262Decoder {
       const frame = this.#decoding_frame!;
       const prev = this.#decoded_frame!;
       if (macroblock_intra) {
+        if (!is_coded) { continue; }
         for (let r = 0; r < BLOCK_ROW; r++) {
           for (let c = 0; c < BLOCK_COL; c++) {
             switch(i) {
@@ -273,12 +273,12 @@ export default class H262Decoder {
         for (let r = 0; r < BLOCK_ROW; r++) {
           for (let c = 0; c < BLOCK_COL; c++) {
             switch(i) {
-              case 0: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 0, frame)] = decoded[r][c] + prev.yuv[DecodedFrame.y_pos(sx * 16 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
-              case 1: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 0, frame)] = decoded[r][c] + prev.yuv[DecodedFrame.y_pos(sx * 16 + c + 8 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
-              case 2: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 8, frame)] = decoded[r][c] + prev.yuv[DecodedFrame.y_pos(sx * 16 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 8 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
-              case 3: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 8, frame)] = decoded[r][c] + prev.yuv[DecodedFrame.y_pos(sx * 16 + c + 8 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 8 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
-              case 4: if (DecodedFrame.u_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.u_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c] + prev.yuv[DecodedFrame.u_pos(sx *  8 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 4), sy *  8 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 4), prev)]; } break;
-              case 5: if (DecodedFrame.v_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.v_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c] + prev.yuv[DecodedFrame.v_pos(sx *  8 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 4), sy *  8 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 4), prev)]; } break;
+              case 0: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.y_pos(sx * 16 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
+              case 1: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.y_pos(sx * 16 + c + 8 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
+              case 2: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 8, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.y_pos(sx * 16 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 8 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
+              case 3: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 8, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.y_pos(sx * 16 + c + 8 + Math.floor(this.#forward_motion_vector[0] / 2), sy * 16 + r + 8 + Math.floor(this.#forward_motion_vector[1] / 2), prev)]; } break;
+              case 4: if (DecodedFrame.u_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.u_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.u_pos(sx *  8 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 4), sy *  8 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 4), prev)]; } break;
+              case 5: if (DecodedFrame.v_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.v_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = (is_coded ? decoded[r][c] : 0) + prev.yuv[DecodedFrame.v_pos(sx *  8 + c + 0 + Math.floor(this.#forward_motion_vector[0] / 4), sy *  8 + r + 0 + Math.floor(this.#forward_motion_vector[1] / 4), prev)]; } break;
             }
           }
         }
