@@ -5,14 +5,32 @@ import { CODED_BLOCK_PATTERN_VLC, DCT_COEFFICIENTS_ZERO_DC_VLC, DCT_COEFFICIENTS
 import { alternateOrder, ExtensionStartCode, type MacroBlockParametersFlags, macroblockParams, PictureCodingExtension, PictureHeader, q_scale, ScalableMode, SequenceExtension, SequenceHeader, SequenceScalableExtension, skipUntilStartCode, StartCode, zigzagOrder } from "./types.mts";
 
 export type DecodedFrame = {
-  width: number,
-  height: number,
+  internal_width: number,
+  internal_height: number,
+  actual_width: number,
+  actual_height: number,
   chroma_format: (typeof ChromaFormat)[keyof typeof ChromaFormat],
   yuv: Uint8ClampedArray,
 };
 export const DecodedFrame = {
   export(frame: DecodedFrame): Uint8Array {
-    return Uint8Array.from(frame.yuv);
+    const values = [];
+    for (let i = 0; i < frame.actual_height; i++) {
+      for (let j = 0; j < frame.actual_width; j++) {
+        values.push(frame.yuv[DecodedFrame.pos(YUVFormatType.Y, j, i, frame)]);
+      }
+    }
+    for (let i = 0; i < Math.floor(frame.actual_height / 2); i++) {
+      for (let j = 0; j < Math.floor(frame.actual_width / 2); j++) {
+        values.push(frame.yuv[DecodedFrame.pos(YUVFormatType.U, j, i, frame)]);
+      }
+    }
+    for (let i = 0; i < Math.floor(frame.actual_height / 2); i++) {
+      for (let j = 0; j < Math.floor(frame.actual_width / 2); j++) {
+        values.push(frame.yuv[DecodedFrame.pos(YUVFormatType.V, j, i, frame)]);
+      }
+    }
+    return Uint8Array.from(values);
   },
   get(type: (typeof YUVFormatType)[keyof typeof YUVFormatType], x: number, y: number, frame: DecodedFrame) {
     const val1 = frame.yuv[DecodedFrame.pos(type, Math.ceil(x),  Math.ceil(y),  frame)];
@@ -21,7 +39,7 @@ export const DecodedFrame = {
     const val4 = frame.yuv[DecodedFrame.pos(type, Math.floor(x), Math.floor(y), frame)];
     return Math.round((val1 + val2 + val3 + val4) / 4);
   },
-  in_range(type: (typeof YUVFormatType)[keyof typeof YUVFormatType], x: number, y: number, { chroma_format, width, height }: DecodedFrame): boolean {
+  in_range(type: (typeof YUVFormatType)[keyof typeof YUVFormatType], x: number, y: number, { chroma_format, internal_width: width, internal_height: height }: DecodedFrame): boolean {
     switch (chroma_format) {
       case ChromaFormat.YUV420:
         switch (type) {
@@ -32,13 +50,13 @@ export const DecodedFrame = {
       default: throw new UnsupportedError('Unsupported ChromaFormat');
     }
   },
-  pos(type: (typeof YUVFormatType)[keyof typeof YUVFormatType], x: number, y: number, { chroma_format, width, height }: DecodedFrame) {
+  pos(type: (typeof YUVFormatType)[keyof typeof YUVFormatType], x: number, y: number, { chroma_format, internal_width: width, internal_height: height }: DecodedFrame) {
     switch (chroma_format) {
       case ChromaFormat.YUV420:
         switch (type) {
           case YUVFormatType.Y: return (y * width + x);
-          case YUVFormatType.U: return (height * width) + (y * width / 2 + x);
-          case YUVFormatType.V: return (height * width) + (height * width / 4) + (y * width / 2 + x);
+          case YUVFormatType.U: return (height * width) + (y * Math.floor(width / 2) + x);
+          case YUVFormatType.V: return (height * width) + Math.floor(height * width / 4) + (y * Math.floor(width / 2) + x);
         }
       default: throw new UnsupportedError('Unsupported ChromaFormat');
     }
@@ -386,10 +404,12 @@ export default class H262Decoder {
           }
           this.#decoded_frame = this.#decoding_frame;
           this.#decoding_frame = {
-            width: this.#sequence_header.horizontal_size_value,
-            height: this.#sequence_header.vertical_size_value,
+            internal_width: Math.ceil(this.#sequence_header.horizontal_size_value / 16) * 16,
+            internal_height:  Math.ceil(this.#sequence_header.vertical_size_value / 16) * 16,
+            actual_width: this.#sequence_header.horizontal_size_value,
+            actual_height:  this.#sequence_header.vertical_size_value,
             chroma_format: this.#sequence_extension.chroma_format,
-            yuv: this.#decoding_frame ? Uint8ClampedArray.from(this.#decoding_frame.yuv) : new Uint8ClampedArray(this.#sequence_header.vertical_size_value * this.#sequence_header.horizontal_size_value * 3 / 2),
+            yuv: this.#decoding_frame ? Uint8ClampedArray.from(this.#decoding_frame.yuv) : new Uint8ClampedArray((Math.ceil(this.#sequence_header.horizontal_size_value / 16) * 16) * (Math.ceil(this.#sequence_header.vertical_size_value / 16) * 16) * 3 / 2),
           }
           this.#macroblock_address = 0;
           break;
