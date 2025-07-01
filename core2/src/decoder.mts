@@ -37,7 +37,7 @@ export const DecodedFrame = {
   },
   y_in_range(x: number, y: number, { chroma_format, width, height }: DecodedFrame): boolean {
     switch (chroma_format) {
-      case ChromaFormat.YUV420: return (y * width + x) < width * height;
+      case ChromaFormat.YUV420: return 0 <= y && y < height && 0 <= x && x < width;
       default: throw new UnsupportedError('Unsupported ChromaFormat');
     }
   },
@@ -49,7 +49,7 @@ export const DecodedFrame = {
   },
   u_in_range(x: number, y: number, { chroma_format, width, height }: DecodedFrame): boolean {
     switch (chroma_format) {
-      case ChromaFormat.YUV420: return (y * width / 2 + x) < width * height / 4;
+      case ChromaFormat.YUV420: return 0 <= y && y < height / 2 && 0 <= x && x < width / 2;
       default: throw new UnsupportedError('Unsupported ChromaFormat');
     }
   },
@@ -61,7 +61,7 @@ export const DecodedFrame = {
   },
   v_in_range(x: number, y: number, { chroma_format, width, height }: DecodedFrame): boolean {
     switch (chroma_format) {
-      case ChromaFormat.YUV420: return (y * width / 2 + x) < width * height / 4;
+      case ChromaFormat.YUV420: return 0 <= y && y < height / 2 && 0 <= x && x < width / 2;
       default: throw new UnsupportedError('Unsupported ChromaFormat');
     }
   },
