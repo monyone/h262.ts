@@ -224,7 +224,7 @@ export type DCTCefficientsParams = {
 } | {
   eob: true;
 }
-const dct_coefficients_zero_table: [number, number, DCTCefficientsParams][] = [
+const dct_coefficients_zero_table: [number, number, Exclude<DCTCefficientsParams, { eob: true }>][] = [
   [0b011,               3, { eob: false, escape: false, run:  1, level:  1}],
   [0b0100,              4, { eob: false, escape: false, run:  0, level:  2}],
   [0b0101,              4, { eob: false, escape: false, run:  2, level:  1}],
@@ -337,7 +337,7 @@ const dct_coefficients_zero_table: [number, number, DCTCefficientsParams][] = [
   [0b0000000000011100, 16, { eob: false, escape: false, run: 30, level:  1}],
   [0b0000000000011011, 16, { eob: false, escape: false, run: 31, level:  1}],
 ] as const satisfies [number, number, DCTCefficientsParams][];
-export const dct_coefficients_zero_dc_table: [number, number, DCTCefficientsParams][] = [
+export const dct_coefficients_zero_dc_table: [number, number, Exclude<DCTCefficientsParams, { eob: true }>][] = [
   [0b1, 1, { eob: false, escape: false, run: 0, level: 1 }],
   ... dct_coefficients_zero_table
 ] as const;
@@ -346,6 +346,122 @@ export const dct_coefficients_zero_other_table: [number, number, DCTCefficientsP
   [0b11, 2, { eob: false, escape: false, run: 0, level: 1 }],
   ... dct_coefficients_zero_table
 ] as const;
+
+const dct_coefficients_one_table: [number, number, DCTCefficientsParams][] = [
+  [0b0110,              4, { eob: true }],
+  [0b10,                2, { eob: false, escape: false, run:  1, level:  1 }],
+  [0b010,               3, { eob: false, escape: false, run:  1, level:  1 }],
+  [0b110,               3, { eob: false, escape: false, run:  0, level:  2 }],
+  [0b00101,             5, { eob: false, escape: false, run:  2, level:  1 }],
+  [0b0111,              4, { eob: false, escape: false, run:  0, level:  3 }],
+  [0b00111,             5, { eob: false, escape: false, run:  3, level:  1 }],
+  [0b000110,            6, { eob: false, escape: false, run:  4, level:  1 }],
+  [0b00110,             5, { eob: false, escape: false, run:  1, level:  2 }],
+  [0b000111,            6, { eob: false, escape: false, run:  5, level:  1 }],
+  [0b0000110,           7, { eob: false, escape: false, run:  6, level:  1 }],
+  [0b0000100,           7, { eob: false, escape: false, run:  7, level:  1 }],
+  [0b11100,             5, { eob: false, escape: false, run:  0, level:  4 }],
+  [0b0000111,           7, { eob: false, escape: false, run:  2, level:  2 }],
+  [0b0000101,           7, { eob: false, escape: false, run:  8, level:  1 }],
+  [0b1111000,           7, { eob: false, escape: false, run:  9, level:  1 }],
+  [0b000001,            6, { eob: false, escape: true }],
+  [0b11101,             5, { eob: false, escape: false, run:  0, level:  5 }],
+  [0b000101,            6, { eob: false, escape: false, run:  0, level:  6 }],
+  [0b1111001,           7, { eob: false, escape: false, run:  1, level:  3 }],
+  [0b00100110,          8, { eob: false, escape: false, run:  3, level:  2 }],
+  [0b1111010,           7, { eob: false, escape: false, run: 10, level:  1 }],
+  [0b00100001,          8, { eob: false, escape: false, run: 11, level:  1 }],
+  [0b00100101,          8, { eob: false, escape: false, run: 12, level:  1 }],
+  [0b00100100,          8, { eob: false, escape: false, run: 13, level:  1 }],
+  [0b000100,            6, { eob: false, escape: false, run:  0, level:  7 }],
+  [0b00100111,          8, { eob: false, escape: false, run:  1, level:  4 }],
+  [0b11111100,          8, { eob: false, escape: false, run:  2, level:  3 }],
+  [0b11111101,          8, { eob: false, escape: false, run:  4, level:  2 }],
+  [0b000000100,         9, { eob: false, escape: false, run:  5, level:  2 }],
+  [0b000000101,         9, { eob: false, escape: false, run: 14, level:  1 }],
+  [0b000000111,         9, { eob: false, escape: false, run: 15, level:  1 }],
+  [0b0000001101,       10, { eob: false, escape: false, run: 16, level:  1 }],
+  [0b1111011,           7, { eob: false, escape: false, run:  0, level:  8 }],
+  [0b1111100,           7, { eob: false, escape: false, run:  0, level:  9 }],
+  [0b00100011,          8, { eob: false, escape: false, run:  0, level: 10 }],
+  [0b00100010,          8, { eob: false, escape: false, run:  0, level: 11 }],
+  [0b00100000,          8, { eob: false, escape: false, run:  1, level:  5 }],
+  [0b0000001100,       10, { eob: false, escape: false, run:  2, level:  4 }],
+  [0b000000011100,     12, { eob: false, escape: false, run:  3, level:  3 }],
+  [0b000000010010,     12, { eob: false, escape: false, run:  4, level:  3 }],
+  [0b000000011110,     12, { eob: false, escape: false, run:  6, level:  2 }],
+  [0b000000010101,     12, { eob: false, escape: false, run:  7, level:  2 }],
+  [0b000000010001,     12, { eob: false, escape: false, run:  8, level:  2 }],
+  [0b000000011111,     12, { eob: false, escape: false, run: 17, level:  1 }],
+  [0b000000011010,     12, { eob: false, escape: false, run: 18, level:  1 }],
+  [0b000000011001,     12, { eob: false, escape: false, run: 19, level:  1 }],
+  [0b000000010111,     12, { eob: false, escape: false, run: 20, level:  1 }],
+  [0b000000010110,     12, { eob: false, escape: false, run: 21, level:  1 }],
+  [0b11111010,          8, { eob: false, escape: false, run:  0, level: 12 }],
+  [0b11111011,          8, { eob: false, escape: false, run:  0, level: 13 }],
+  [0b11111110,          8, { eob: false, escape: false, run:  0, level: 14 }],
+  [0b11111111,          8, { eob: false, escape: false, run:  0, level: 15 }],
+  [0b0000000010110,    13, { eob: false, escape: false, run:  1, level:  6 }],
+  [0b0000000010101,    13, { eob: false, escape: false, run:  1, level:  7 }],
+  [0b0000000010100,    13, { eob: false, escape: false, run:  2, level:  5 }],
+  [0b0000000010011,    13, { eob: false, escape: false, run:  3, level:  4 }],
+  [0b0000000010010,    13, { eob: false, escape: false, run:  5, level:  3 }],
+  [0b0000000010001,    13, { eob: false, escape: false, run:  9, level:  2 }],
+  [0b0000000010000,    13, { eob: false, escape: false, run: 10, level:  2 }],
+  [0b0000000011111,    13, { eob: false, escape: false, run: 22, level:  1 }],
+  [0b0000000011110,    13, { eob: false, escape: false, run: 23, level:  1 }],
+  [0b0000000011101,    13, { eob: false, escape: false, run: 24, level:  1 }],
+  [0b0000000011100,    13, { eob: false, escape: false, run: 25, level:  1 }],
+  [0b0000000011011,    13, { eob: false, escape: false, run: 26, level:  1 }],
+  [0b00000000011111,   14, { eob: false, escape: false, run:  0, level: 16 }],
+  [0b00000000011110,   14, { eob: false, escape: false, run:  0, level: 17 }],
+  [0b00000000011101,   14, { eob: false, escape: false, run:  0, level: 18 }],
+  [0b00000000011100,   14, { eob: false, escape: false, run:  0, level: 19 }],
+  [0b00000000011011,   14, { eob: false, escape: false, run:  0, level: 20 }],
+  [0b00000000011010,   14, { eob: false, escape: false, run:  0, level: 21 }],
+  [0b00000000011001,   14, { eob: false, escape: false, run:  0, level: 22 }],
+  [0b00000000011000,   14, { eob: false, escape: false, run:  0, level: 23 }],
+  [0b00000000010111,   14, { eob: false, escape: false, run:  0, level: 24 }],
+  [0b00000000010110,   14, { eob: false, escape: false, run:  0, level: 25 }],
+  [0b00000000010101,   14, { eob: false, escape: false, run:  0, level: 26 }],
+  [0b00000000010100,   14, { eob: false, escape: false, run:  0, level: 27 }],
+  [0b00000000010011,   14, { eob: false, escape: false, run:  0, level: 28 }],
+  [0b00000000010010,   14, { eob: false, escape: false, run:  0, level: 29 }],
+  [0b00000000010001,   14, { eob: false, escape: false, run:  0, level: 30 }],
+  [0b00000000010000,   14, { eob: false, escape: false, run:  0, level: 31 }],
+  [0b000000000011000,  15, { eob: false, escape: false, run:  0, level: 32 }],
+  [0b000000000010111,  15, { eob: false, escape: false, run:  0, level: 33 }],
+  [0b000000000010110,  15, { eob: false, escape: false, run:  0, level: 34 }],
+  [0b000000000010101,  15, { eob: false, escape: false, run:  0, level: 35 }],
+  [0b000000000010100,  15, { eob: false, escape: false, run:  0, level: 36 }],
+  [0b000000000010011,  15, { eob: false, escape: false, run:  0, level: 37 }],
+  [0b000000000010010,  15, { eob: false, escape: false, run:  0, level: 38 }],
+  [0b000000000010001,  15, { eob: false, escape: false, run:  0, level: 39 }],
+  [0b000000000010000,  15, { eob: false, escape: false, run:  0, level: 40 }],
+  [0b000000000011111,  15, { eob: false, escape: false, run:  1, level:  8 }],
+  [0b000000000011110,  15, { eob: false, escape: false, run:  1, level:  9 }],
+  [0b000000000011101,  15, { eob: false, escape: false, run:  1, level: 10 }],
+  [0b000000000011100,  15, { eob: false, escape: false, run:  1, level: 11 }],
+  [0b000000000011011,  15, { eob: false, escape: false, run:  1, level: 12 }],
+  [0b000000000011010,  15, { eob: false, escape: false, run:  1, level: 13 }],
+  [0b000000000011001,  15, { eob: false, escape: false, run:  1, level: 14 }],
+  [0b0000000000010011, 16, { eob: false, escape: false, run:  1, level: 15 }],
+  [0b0000000000010010, 16, { eob: false, escape: false, run:  1, level: 16 }],
+  [0b0000000000010001, 16, { eob: false, escape: false, run:  1, level: 17 }],
+  [0b0000000000010000, 16, { eob: false, escape: false, run:  1, level: 18 }],
+  [0b0000000000010100, 16, { eob: false, escape: false, run:  6, level:  3 }],
+  [0b0000000000011010, 16, { eob: false, escape: false, run: 11, level:  2 }],
+  [0b0000000000011001, 16, { eob: false, escape: false, run: 12, level:  2 }],
+  [0b0000000000011000, 16, { eob: false, escape: false, run: 13, level:  2 }],
+  [0b0000000000010111, 16, { eob: false, escape: false, run: 14, level:  2 }],
+  [0b0000000000010110, 16, { eob: false, escape: false, run: 15, level:  2 }],
+  [0b0000000000010101, 16, { eob: false, escape: false, run: 16, level:  2 }],
+  [0b0000000000011111, 16, { eob: false, escape: false, run: 27, level:  1 }],
+  [0b0000000000011110, 16, { eob: false, escape: false, run: 28, level:  1 }],
+  [0b0000000000011101, 16, { eob: false, escape: false, run: 29, level:  1 }],
+  [0b0000000000011100, 16, { eob: false, escape: false, run: 30, level:  1 }],
+  [0b0000000000011011, 16, { eob: false, escape: false, run: 31, level:  1 }],
+] as const satisfies [number, number, DCTCefficientsParams][];
 
 export const MACROBLOCK_ADDRESS_INCREMENT_VLC = new BinaryTrie<number>();
 macroblock_address_increment_table.forEach(([code, length], idx) => {
@@ -384,7 +500,7 @@ dct_dc_size_chrominance_table.forEach(([code, length], index) => {
   DCT_DC_SIZE_CHROMINANCE_VLC.append(index, code, length);
 });
 
-export const DCT_COEFFICIENTS_ZERO_DC_VLC = new BinaryTrie<DCTCefficientsParams>();
+export const DCT_COEFFICIENTS_ZERO_DC_VLC = new BinaryTrie<Exclude<DCTCefficientsParams, { eob: true }>>();
 dct_coefficients_zero_dc_table.forEach(([code, length, value]) => {
   DCT_COEFFICIENTS_ZERO_DC_VLC.append(value, code, length);
 });
@@ -392,3 +508,8 @@ export const DCT_COEFFICIENTS_ZERO_OTHER_VLC = new BinaryTrie<DCTCefficientsPara
 dct_coefficients_zero_other_table.forEach(([code, length, value]) => {
   DCT_COEFFICIENTS_ZERO_OTHER_VLC.append(value, code, length);
 });
+export const DCT_COEFFICIENTS_ONE_VLC = new BinaryTrie<DCTCefficientsParams>();
+dct_coefficients_one_table.forEach(([code, length, value]) => {
+  DCT_COEFFICIENTS_ONE_VLC.append(value, code, length);
+});
+
