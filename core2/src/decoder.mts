@@ -14,6 +14,27 @@ export const DecodedFrame = {
   export(frame: DecodedFrame): Uint8Array {
     return Uint8Array.from(frame.yuv);
   },
+  y_get(x: number, y: number, frame: DecodedFrame) {
+    const val1 = frame.yuv[DecodedFrame.y_pos(Math.ceil(x),  Math.ceil(y),  frame)];
+    const val2 = frame.yuv[DecodedFrame.y_pos(Math.ceil(x),  Math.floor(y), frame)];
+    const val3 = frame.yuv[DecodedFrame.y_pos(Math.floor(x), Math.ceil(y),  frame)];
+    const val4 = frame.yuv[DecodedFrame.y_pos(Math.floor(x), Math.floor(y), frame)];
+    return Math.round((val1 + val2 + val3 + val4) / 4);
+  },
+  u_get(x: number, y: number, frame: DecodedFrame) {
+    const val1 = frame.yuv[DecodedFrame.u_pos(Math.ceil(x),  Math.ceil(y),  frame)];
+    const val2 = frame.yuv[DecodedFrame.u_pos(Math.ceil(x),  Math.floor(y), frame)];
+    const val3 = frame.yuv[DecodedFrame.u_pos(Math.floor(x), Math.ceil(y),  frame)];
+    const val4 = frame.yuv[DecodedFrame.u_pos(Math.floor(x), Math.floor(y), frame)];
+    return Math.round((val1 + val2 + val3 + val4) / 4);
+  },
+  v_get(x: number, y: number, frame: DecodedFrame) {
+    const val1 = frame.yuv[DecodedFrame.v_pos(Math.ceil(x),  Math.ceil(y),  frame)];
+    const val2 = frame.yuv[DecodedFrame.v_pos(Math.ceil(x),  Math.floor(y), frame)];
+    const val3 = frame.yuv[DecodedFrame.v_pos(Math.floor(x), Math.ceil(y),  frame)];
+    const val4 = frame.yuv[DecodedFrame.v_pos(Math.floor(x), Math.floor(y), frame)];
+    return Math.round((val1 + val2 + val3 + val4) / 4);
+  },
   y_in_range(x: number, y: number, { chroma_format, width, height }: DecodedFrame): boolean {
     switch (chroma_format) {
       case ChromaFormat.YUV420: return (y * width + x) < width * height;
@@ -74,6 +95,7 @@ export default class H262Decoder {
       1 << (this.#picture_coding_extension.intra_dc_precision + 7),
       1 << (this.#picture_coding_extension.intra_dc_precision + 7),
     ];
+    // At the start of each slice.
     this.#forward_motion_vector = [0, 0];
 
     if (slice_vertical_position > 2800) {
@@ -126,7 +148,10 @@ export default class H262Decoder {
         1 << (this.#picture_coding_extension.intra_dc_precision + 7),
         1 << (this.#picture_coding_extension.intra_dc_precision + 7),
       ];
-      this.#forward_motion_vector = [0, 0];
+      // In a P-picture when a macroblock is skipped.
+      if (this.#picture_header.picture_coding_type === PictureCodingType.P) {
+        this.#forward_motion_vector = [0, 0];
+      }
     }
     this.#macroblock_address += macroblock_address_increment;
 
@@ -147,14 +172,21 @@ export default class H262Decoder {
       dct_type = bool(reader.read(1));
     }
 
-    if (macroblock_intra) {
-      this.#forward_motion_vector = [0, 0];
-    } else {
+    if (!macroblock_intra) {
       this.#dct_dc_pred = [
         1 << (this.#picture_coding_extension.intra_dc_precision + 7),
         1 << (this.#picture_coding_extension.intra_dc_precision + 7),
         1 << (this.#picture_coding_extension.intra_dc_precision + 7),
       ];
+    }
+
+    // Whenever an intra macroblock is decoded which has no concealment motion vectors.
+    if (macroblock_intra && !this.#picture_coding_extension.concealment_motion_vectors) {
+      this.#forward_motion_vector = [0, 0];
+    }
+    // In a P-picture when a non-intra macroblock is decoded in which macroblock_motion_forward is zero.
+    if (this.#picture_header.picture_coding_type === PictureCodingType.P && !macroblock_intra && !macroblock_motion_forward) {
+      this.#forward_motion_vector = [0, 0];
     }
 
     if (macroblock_quant) {
@@ -171,7 +203,7 @@ export default class H262Decoder {
       const motion_code_0 = MOTION_CODE_VLC.get(reader)!;
       const has_motion_residual_0 = r_size_0 !== 0 && motion_code_0 !== 0;
       const motion_residual_0 = has_motion_residual_0 ? reader.read(r_size_0) : null;
-      const delta_0 = motion_residual_0 != null ? Math.sign(motion_code_0) * ((Math.abs(motion_code_0 )- 1) * f_0 + motion_residual_0 + 1) : motion_code_0;
+      const delta_0 = motion_residual_0 != null ? Math.sign(motion_code_0) * ((Math.abs(motion_code_0) - 1) * f_0 + motion_residual_0 + 1) : motion_code_0;
       let vector_0 = this.#forward_motion_vector[0] + delta_0;
       if (vector_0 < low_0) { vector_0 += range_0; }
       if (vector_0 > high_0) { vector_0 -= range_0; }
