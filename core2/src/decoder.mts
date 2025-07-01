@@ -61,6 +61,7 @@ export default class H262Decoder {
   #dct_dc_pred: number[] = [];
   #quantizer_scale: number | null = null;
   #macroblock_address: number = 0;
+  #forward_motion_vector: [number, number] = [0, 0];
 
   #decoding_frame: DecodedFrame | null = null;
 
@@ -72,6 +73,7 @@ export default class H262Decoder {
       1 << (this.#picture_coding_extension.intra_dc_precision + 7),
       1 << (this.#picture_coding_extension.intra_dc_precision + 7),
     ];
+    this.#forward_motion_vector = [0, 0];
 
     if (slice_vertical_position >= (2800 - 1)) {
       slice_vertical_position += (reader.read(3) << 7)
@@ -91,6 +93,7 @@ export default class H262Decoder {
     }
     reader.skip(1); // extra_bit_slice
 
+    this.#macroblock_address = slice_vertical_position * Math.ceil(this.#sequence_header!.horizontal_size_value / 16);
     try {
       do {
         this.#macroblock(reader);
@@ -132,31 +135,30 @@ export default class H262Decoder {
       dct_type = bool(reader.read(1));
     }
 
+    if (macroblock_intra) {
+      this.#forward_motion_vector = [0, 0];
+    }
+
     if (macroblock_quant) {
       this.#quantizer_scale = reader.read(5);
     }
-    let motion_vector_0 = null;
     if (macroblock_motion_forward || (macroblock_intra && this.#picture_coding_extension.concealment_motion_vectors)) {
       // mb
       // motion_vector(0, 0)
-      const motion_code_0 = MOTION_CODE_VLC.get(reader);
+      const motion_code_0 = MOTION_CODE_VLC.get(reader)!;
       const has_motion_residual_0 = this.#picture_coding_extension.f_code[0][0] !== 1 && motion_code_0 !== 0;
       const motion_residual_0 = has_motion_residual_0 ? reader.read(this.#picture_coding_extension.f_code[0][0] - 1) : 0;
 
-      const motion_code_1 = MOTION_CODE_VLC.get(reader);
+      const motion_code_1 = MOTION_CODE_VLC.get(reader)!;
       const has_motion_residual_1 = this.#picture_coding_extension.f_code[0][1] !== 1 && motion_code_1 !== 0;
       const motion_residual_1 = has_motion_residual_1 ? reader.read(this.#picture_coding_extension.f_code[0][1] - 1) : 0;
+
+      this.#forward_motion_vector = [this.#forward_motion_vector[0] + motion_code_0, this.#forward_motion_vector[1] + motion_code_1];
+      console.error(this.#forward_motion_vector)
     }
     if (macroblock_motion_backward) {
       // mb
       // motion_vector(0, 1)
-      const motion_code_0 = MOTION_CODE_VLC.get(reader);
-      const has_motion_residual_0 = this.#picture_coding_extension.f_code[1][0] !== 1 && motion_code_0 !== 0;
-      const motion_residual_0 = has_motion_residual_0 ? reader.read(this.#picture_coding_extension.f_code[1][0]) : 0;
-
-      const motion_code_1 = MOTION_CODE_VLC.get(reader);
-      const has_motion_residual_1 = this.#picture_coding_extension.f_code[1][1] !== 1 && motion_code_1 !== 0;
-      const motion_residual_1 = has_motion_residual_1 ? reader.read(this.#picture_coding_extension.f_code[1][1]) : 0;
     }
     if (macroblock_intra && this.#picture_coding_extension.concealment_motion_vectors) {
       reader.skip(1);
@@ -186,15 +188,30 @@ export default class H262Decoder {
       const sy = Math.floor(this.#macroblock_address / rows);
 
       const frame = this.#decoding_frame!;
-      for (let r = 0; r < BLOCK_ROW; r++) {
-        for (let c = 0; c < BLOCK_COL; c++) {
-          switch(i) {
-            case 0: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 0, frame)] = decoded[r][c]; } break;
-            case 1: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 0, frame)] = decoded[r][c]; } break;
-            case 2: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 8, frame)] = decoded[r][c]; } break;
-            case 3: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 8, frame)] = decoded[r][c]; } break;
-            case 4: if (DecodedFrame.u_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.u_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; } break;
-            case 5: if (DecodedFrame.v_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.v_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; } break;
+      if (!macroblock_motion_forward) {
+        for (let r = 0; r < BLOCK_ROW; r++) {
+          for (let c = 0; c < BLOCK_COL; c++) {
+            switch(i) {
+              case 0: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 0, frame)] = decoded[r][c]; } break;
+              case 1: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 0, frame)] = decoded[r][c]; } break;
+              case 2: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 8, frame)] = decoded[r][c]; } break;
+              case 3: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 8, frame)] = decoded[r][c]; } break;
+              case 4: if (DecodedFrame.u_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.u_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; } break;
+              case 5: if (DecodedFrame.v_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.v_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c]; } break;
+            }
+          }
+        }
+      } else {
+        for (let r = 0; r < BLOCK_ROW; r++) {
+          for (let c = 0; c < BLOCK_COL; c++) {
+            switch(i) {
+              case 0: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 0, frame)] = decoded[r][c] + frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 0, frame)]; } break;
+              case 1: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 0, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 0, frame)] = decoded[r][c] + frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 0, frame)]; } break;
+              case 2: if (DecodedFrame.y_in_range(sx * 16 + c + 0, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 8, frame)] = decoded[r][c] + frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 0, sy * 16 + r + 8, frame)]; } break;
+              case 3: if (DecodedFrame.y_in_range(sx * 16 + c + 8, sy * 16 + r + 8, frame)) { frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 8, frame)] = decoded[r][c] + frame.yuv[DecodedFrame.y_pos(sx * 16 + c + 8, sy * 16 + r + 8, frame)]; } break;
+              case 4: if (DecodedFrame.u_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.u_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c] + frame.yuv[DecodedFrame.u_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)]; } break;
+              case 5: if (DecodedFrame.v_in_range(sx *  8 + c + 0, sy *  8 + r + 0, frame)) { frame.yuv[DecodedFrame.v_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)] = decoded[r][c] + frame.yuv[DecodedFrame.v_pos(sx *  8 + c + 0, sy *  8 + r + 0, frame)]; } break;
+            }
           }
         }
       }
@@ -309,14 +326,6 @@ export default class H262Decoder {
           switch (reader.read(4)) {
             case ExtensionStartCode.SequenceExtension: {
               this.#sequence_extension = SequenceExtension.from(reader);
-              if (this.#sequence_header == null) { break; }
-              this.#decoding_frame = {
-                width: this.#sequence_header.horizontal_size_value,
-                height: this.#sequence_header.vertical_size_value,
-                chroma_format: this.#sequence_extension.chroma_format,
-                yuv: new Uint8ClampedArray(this.#sequence_header.vertical_size_value * this.#sequence_header.horizontal_size_value * 3 / 2),
-              }
-              this.#macroblock_address = 0;
               break;
             }
             case ExtensionStartCode.PictureCodingExtension: {
@@ -331,10 +340,19 @@ export default class H262Decoder {
           // ignore
           break;
         case StartCode.PictureStartCode:
+          this.#picture_header = PictureHeader.from(reader);
+          // Next
           if (this.#decoding_frame) {
             yield DecodedFrame.export(this.#decoding_frame!);
           }
-          this.#picture_header = PictureHeader.from(reader);
+          if (this.#sequence_header == null || this.#sequence_extension == null) { break; }
+            this.#decoding_frame = {
+            width: this.#sequence_header.horizontal_size_value,
+            height: this.#sequence_header.vertical_size_value,
+            chroma_format: this.#sequence_extension.chroma_format,
+            yuv: this.#decoding_frame ? Uint8ClampedArray.from(this.#decoding_frame.yuv) : new Uint8ClampedArray(this.#sequence_header.vertical_size_value * this.#sequence_header.horizontal_size_value * 3 / 2),
+          }
+          this.#macroblock_address = 0;
           break;
         case StartCode.SequenceEndCode:
           // ignore
